@@ -1,0 +1,101 @@
+from gc import get_referents
+import sqlite3
+from backend.configuration import (
+    DB_LOCATION,
+    FILES_TABLE,
+    FILE_CONTENTS_TABLE
+)
+
+# -------------------------------
+# DB Connection
+# -------------------------------
+def get_connection():
+    return sqlite3.connect(DB_LOCATION)
+
+
+# -------------------------------
+# Create Tables (Run Once)
+# -------------------------------
+def initialize_database():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Files Table (already used in indexer)
+    cursor.execute(f"""
+    CREATE TABLE IF NOT EXISTS {FILES_TABLE} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        path TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        extension TEXT,
+        size INTEGER,
+        modified_time INTEGER,
+        created_time INTEGER,
+        folder TEXT
+    );
+    """)
+
+    # File Content Table (for extractor)
+    cursor.execute(f"""
+    CREATE TABLE IF NOT EXISTS {FILE_CONTENTS_TABLE} (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        file_id INTEGER,
+        content TEXT,
+        last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        FOREIGN KEY (file_id) REFERENCES {FILES_TABLE}(id)
+    )
+    """)
+
+    conn.commit()
+    conn.close()
+
+
+# -------------------------------
+# Insert Extracted Content
+# -------------------------------
+def insert_file_content(file_id, content):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Check if content already exists
+    cursor.execute(f"""
+        SELECT id FROM {FILE_CONTENTS_TABLE} WHERE file_id = ?
+    """, (file_id,))
+    
+    result = cursor.fetchone()
+
+    if result:
+        # Update existing content
+        cursor.execute(f"""
+            UPDATE {FILE_CONTENTS_TABLE}
+            SET content = ?, last_updated = CURRENT_TIMESTAMP
+            WHERE file_id = ?
+        """, (content, file_id))
+    else:
+        # Insert new content
+        cursor.execute(f"""
+            INSERT INTO {FILE_CONTENTS_TABLE} (file_id, content)
+            VALUES (?, ?)
+        """, (file_id, content))
+
+    conn.commit()
+    conn.close()
+
+
+# -------------------------------
+# Get All Files (for extractor loop)
+# -------------------------------
+def get_all_files():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(f"SELECT id, path FROM {FILES_TABLE}")
+    rows = cursor.fetchall()
+
+    conn.close()
+
+    # Convert to list of dicts
+    files = [{"id": row[0], "file_path": row[1]} for row in rows]
+    
+    # for file in files:
+    #     print(file)
+    return files
