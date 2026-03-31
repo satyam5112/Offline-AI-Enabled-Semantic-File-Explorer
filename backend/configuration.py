@@ -7,4 +7,6 @@ DB_LOCATION = os.path.abspath("fileTracker_Status_checker.db")
 TABLE_NAME = "files"   # or "files" depending on your schema
 
 # ---- Filesystem Configuration ----
-BASE_FOLDER_ADDRESS = os.path.abspath("files_collection")
+BASE_FOLDER_ADDRESS = os.path.abspath(
+    os.path.join("backend", "files_collection")
+)
