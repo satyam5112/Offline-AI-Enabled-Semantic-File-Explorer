@@ -139,6 +139,19 @@ print("\n💾 Committing changes to DB...")
 conn.commit()
 print("✅ Commit done")
 
+# 7. CLOSE DB
+# -------------------------------
+conn.close()
+print("\n🔒 DB connection closed")
+
+# 1. DB CONNECTION
+# -------------------------------
+print("📦 Connecting to DB:", DB_LOCATION)
+
+conn = sqlite3.connect(DB_LOCATION)
+cursor = conn.cursor()
+
+print("✅ Connected to DB")
 
 # -------------------------------
 # 6. VERIFY DATA
