@@ -3,7 +3,7 @@ import sqlite3
 
 from backend.configuration import (
     DB_LOCATION,
-    TABLE_NAME,
+    FILES_TABLE,
     BASE_FOLDER_ADDRESS
 )
 
@@ -26,7 +26,7 @@ print("✅ Connected to DB")
 print("🛠️ Creating table if not exists...")
 
 create_table_query = f'''
-CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
+CREATE TABLE IF NOT EXISTS {FILES_TABLE} (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     path TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS {TABLE_NAME} (
 
 cursor.execute(create_table_query)
 
-print("✅ Table ready:", TABLE_NAME)
+print("✅ Table ready:", FILES_TABLE)
 
 
 # -------------------------------
@@ -97,7 +97,7 @@ def scan_directory(root):
 
             # INSERT QUERY
             insert_query = f'''
-            INSERT INTO {TABLE_NAME} 
+            INSERT INTO {FILES_TABLE} 
             (path, name, extension, size, modified_time, created_time, folder)
             VALUES (?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(path) DO UPDATE SET
@@ -159,7 +159,7 @@ print("✅ Connected to DB")
 print("\n🔍 Fetching data from DB...")
 
 try:
-    cursor.execute(f"SELECT COUNT(*) FROM {TABLE_NAME}")
+    cursor.execute(f"SELECT COUNT(*) FROM {FILES_TABLE}")
     count = cursor.fetchone()[0]
     print(f"📊 Total rows in DB: {count}")
 except Exception as e:
@@ -169,7 +169,7 @@ except Exception as e:
 print("\n--- Sample Data ---")
 
 try:
-    cursor.execute(f"SELECT * FROM {TABLE_NAME} LIMIT 10")
+    cursor.execute(f"SELECT * FROM {FILES_TABLE} LIMIT 10")
     rows = cursor.fetchall()
 
     if not rows:
