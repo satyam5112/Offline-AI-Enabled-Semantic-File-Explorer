@@ -18,6 +18,6 @@
 3. Extractor Module
 - It performs the content extraction of all the files in the LFS and stores the content in the table `FileContents`.
 - I thas been implemented using `extractor.py` which call separate function according to the file extension.
-- I am running `run_extractor` which rads each file from database and calls `extractor's` `extract_file()` function to extract the content of files based on the file extension.
+- I am running `run_extractor` which reads each file from database and calls `extractor's` `extract_file()` function to extract the content of files based on the file extension.
 
 4. Vectorization

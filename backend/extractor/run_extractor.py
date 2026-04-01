@@ -10,8 +10,8 @@ def run_extractor():
         # count += 1
         # if count == 12:
             # break
+        print(f"Processing: {file['file_path']}")
         extract_file(file["id"], file["file_path"])
-        print(f"Extracted: {file['file_path']}")
 
 if __name__ == "__main__":
     run_extractor()

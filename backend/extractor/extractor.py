@@ -1,6 +1,7 @@
 import os
 from backend.configuration import BASE_FOLDER_ADDRESS
 
+from backend.extractor.image_extractor import extract_image
 from backend.extractor.pdf_extractor import extract_pdf
 from backend.extractor.txt_extractor import extract_txt
 from backend.extractor.csv_extractor import extract_csv
@@ -32,6 +33,10 @@ def extract_file(file_id, file_path):
         # print(f"[DEBUG] Extracting CSV: {file_path}")
         content = extract_csv(file_path)
 
+    elif ext == ".jpg" or ext == ".jpeg" or ext == ".png":
+        # print(f"[DEBUG] Extracting Image: {file_path}")
+        content = extract_image(file_path)
+    
     else:
         print(f"Unsupported file: {file_path}")
         return
