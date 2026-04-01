@@ -45,6 +45,20 @@ def initialize_database():
     )
     """)
 
+    # -------------------------------
+    # Vector Mapping Table (FAISS ↔ Files)
+    # -------------------------------
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS vector_mapping (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        vector_id INTEGER,
+        file_id INTEGER,
+        chunk_text TEXT,
+        chunk_index INTEGER,
+        FOREIGN KEY (file_id) REFERENCES Files(id)
+    )
+    """)
+
     conn.commit()
     conn.close()
 
@@ -99,3 +113,31 @@ def get_all_files():
     # for file in files:
     #     print(file)
     return files
+
+# Function to get the content from file_contents table (for vectorizer)
+
+def get_all_file_contents():
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute(f"SELECT file_id, content FROM {FILE_CONTENTS_TABLE}")
+    rows = cursor.fetchall()
+
+    conn.close()
+
+    return [{"file_id": row[0], "content": row[1]} for row in rows]
+
+# -------------------------------
+# Insert Vector Mapping
+# -------------------------------
+def insert_vector_mapping(vector_id, file_id, chunk_text, chunk_index):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO vector_mapping (vector_id, file_id, chunk_text, chunk_index)
+        VALUES (?, ?, ?, ?)
+    """, (vector_id, file_id, chunk_text, chunk_index))
+
+    conn.commit()
+    conn.close()

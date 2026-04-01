@@ -21,3 +21,6 @@
 - I am running `run_extractor` which reads each file from database and calls `extractor's` `extract_file()` function to extract the content of files based on the file extension.
 
 4. Vectorization
+- It performs the content vectorization of all file contents storedin the `FileContent` table.
+- It performs `chunking` --> `embeddings(coversion in vector)` --> `store in FAISS` --> `insert into vector mapping`
+
