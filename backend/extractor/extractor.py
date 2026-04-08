@@ -1,4 +1,3 @@
-import os
 from backend.configuration import BASE_FOLDER_ADDRESS
 
 from backend.extractor.image_extractor import extract_image
@@ -10,39 +9,34 @@ from backend.extractor.utils import clean_text
 from backend.database.db import insert_file_content
 
 
-def extract_file(file_id, file_path):
-    # 🔥 FIX: Convert relative path → absolute path
+def extract_file(file_path):
+    import os
 
-    full_path = os.path.normpath(
-        os.path.join(BASE_FOLDER_ADDRESS, file_path)
-    )
-    # print(f"[DEBUG] Full path: {full_path}")
-    file_path = full_path
+    if os.path.isabs(file_path):
+            full_path = file_path
+    else:
+        full_path = os.path.normpath(
+            os.path.join(BASE_FOLDER_ADDRESS, file_path)
+        )
     
     ext = os.path.splitext(file_path)[1].lower()
 
     if ext == ".pdf":
-        # print(f"Extracting PDF: {file_path}")
-        content = extract_pdf(file_path)
+        content = extract_pdf(full_path)
 
     elif ext == ".txt":
-        # print(f"[DEBUG] Extracting TXT: {file_path}")
-        content = extract_txt(file_path)
+        content = extract_txt(full_path)
 
     elif ext == ".csv":
-        # print(f"[DEBUG] Extracting CSV: {file_path}")
-        content = extract_csv(file_path)
+        content = extract_csv(full_path)
 
-    elif ext == ".jpg" or ext == ".jpeg" or ext == ".png":
-        # print(f"[DEBUG] Extracting Image: {file_path}")
-        content = extract_image(file_path)
-    
+    elif ext in [".jpg", ".jpeg", ".png"]:
+        content = extract_image(full_path)
+
     else:
         print(f"Unsupported file: {file_path}")
-        return
+        return ""
 
-    # Clean text
     cleaned_content = clean_text(content)
 
-    # Store in DB
-    insert_file_content(file_id, cleaned_content)
+    return cleaned_content

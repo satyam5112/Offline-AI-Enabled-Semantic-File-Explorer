@@ -8,12 +8,12 @@ import faiss
 # Mapping storage (IMPORTANT)
 vector_store = []
 
-def run_vectorizer():
-    records = get_all_file_contents()
+def run_vectorizer(file_id, content):
+    # records = get_all_file_contents()
 
-    for record in records:
-        file_id = record["file_id"]
-        content = record["content"]
+    # for record in records:
+        # file_id = record["file_id"]
+        # content = record["content"]
 
         chunks = chunk_text(content)
         # print("Chunking completed. Number of chunks:", len(chunks))
@@ -23,7 +23,7 @@ def run_vectorizer():
         # 🔥 ADD THIS CHECK
         if len(embeddings) == 0:
             print(f"[WARNING] Skipping file_id {file_id} due to empty content")
-            continue
+            return
         
         # print("Embedding completed. Number of embeddings:", len(embeddings))
 
@@ -46,9 +46,9 @@ def run_vectorizer():
                 chunk_index=i
             )
         
-    faiss.write_index(index, "backend/vectorizer/faiss_index.bin")
+        faiss.write_index(index, "backend/vectorizer/faiss_index.bin")
 
-    print("[INFO] Vectorization + Mapping completed successfully")
+        # print("[INFO] Vectorization + Mapping completed successfully")
 
 
 if __name__ == "__main__":
