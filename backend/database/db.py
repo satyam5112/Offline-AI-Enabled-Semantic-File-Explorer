@@ -141,3 +141,25 @@ def insert_vector_mapping(vector_id, file_id, chunk_text, chunk_index):
 
     conn.commit()
     conn.close()
+
+def get_vectors_by_file_id(file_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "SELECT vector_id FROM vector_mapping WHERE file_id = ?",
+        (file_id,)
+    )
+    rows = cursor.fetchall()
+
+    conn.close()
+    return [{"vector_id": row[0]} for row in rows]
+
+def delete_vector_mappings_by_file_id(file_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute(
+        "DELETE FROM vector_mapping WHERE file_id = ?",
+        (file_id,)
+    )
+    conn.commit()
+    conn.close()
