@@ -1,7 +1,8 @@
 import os
 
 # ---- Database Configuration ----
-DB_LOCATION = os.path.abspath("fileTracker_Status_checker.db")
+# DB_LOCATION = os.path.abspath("fileTracker_Status_checker.db")      # Absolute path to the SQLite older database file
+DB_LOCATION = os.path.abspath("backend/fileTracker_Status_checker.db")
 
 # ---- Indexing Configuration ----
 FILES_TABLE = "files"   # or "files" depending on your schema

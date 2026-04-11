@@ -2,7 +2,8 @@ import time
 from backend.queue.file_queue import file_queue, queued_files
 from backend.extractor.extractor import extract_file
 from backend.vectorizer.vectorizer import run_vectorizer
-from backend.indexer.indexer import index_file, delete_file
+from backend.indexer.indexer import process_file
+from backend.deleter.deleter import delete_file_records
 
 
 def worker():
@@ -15,7 +16,7 @@ def worker():
             print(f"\n⚙️ Processing: {task_type} → {file_path}")
 
             if task_type in ("create", "modify"):
-                file_id = index_file(file_path)
+                file_id = process_file(file_path)
 
                 content = extract_file(file_path)
 
@@ -23,7 +24,7 @@ def worker():
                     run_vectorizer(file_id, content)
 
             elif task_type == "delete":
-                delete_file(file_path)
+                delete_file_records(file_path)
 
             # ✅ Remove from dedup set AFTER processing
             if file_path in queued_files:

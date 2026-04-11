@@ -13,31 +13,44 @@ def run_vectorizer(file_id, content):
     cursor = conn.cursor()
 
     try:
+        # ---- Start Transaction ----
+        conn.execute("BEGIN")
+
+        if file_id is None:
+            print("❌ Invalid file_id. Skipping vectorization.")
+            return
+
         chunks = chunk_text(content)
         print("Chunks Created")
+
         embeddings = get_embeddings(chunks)
         print("Embeddings Generated")
-        
+
         if len(embeddings) == 0:
             print(f"[WARNING] Skipping file_id {file_id} due to empty content")
+            conn.rollback()
             return
+
+        if len(chunks) != len(embeddings):
+            raise ValueError("Mismatch between chunks and embeddings")
+
+        # ---- Remove old vectors (important) ----
+        cursor.execute("DELETE FROM vector_mapping WHERE file_id = ?", (file_id,))
 
         vector_ids = []
 
-        for i, chunk in enumerate(chunks):
-            # ✅ Insert into DB FIRST (auto-increment ID)
+        # ---- Insert into DB ----
+        for i, (chunk, embedding) in enumerate(zip(chunks, embeddings)):
             cursor.execute(
                 """
-                INSERT INTO vector_mapping (file_id, chunk_index, chunk_text)
+                INSERT INTO vector_mapping (file_id, chunk_text, chunk_index)
                 VALUES (?, ?, ?)
                 """,
-                (file_id, i, chunk)
+                (file_id, chunk, i)
             )
 
-            vector_id = cursor.lastrowid  # ✅ SAFE ID from SQLite
+            vector_id = cursor.lastrowid
             vector_ids.append(vector_id)
-
-        conn.commit()
 
         # ---- Add to FAISS ----
         vectors_np = np.array(embeddings).astype("float32")
@@ -48,50 +61,15 @@ def run_vectorizer(file_id, content):
         # ---- Save index ----
         save_index(index)
 
+        # ---- Commit only if EVERYTHING succeeds ----
+        conn.commit()
+
         print(f"✅ Vectorized file_id {file_id}")
 
     except Exception as e:
+        # ❌ If anything fails → rollback DB
+        conn.rollback()
         print(f"❌ Vectorization Error: {e}")
-
-    finally:
-        conn.close()
-
-def delete_vectors(file_id):
-        
-    conn = sqlite3.connect(DB_LOCATION)
-    cursor = conn.cursor()
-
-    try:
-        # ---- Get vector_ids for this file ----
-        cursor.execute(
-            "SELECT vector_id FROM vector_mapping WHERE file_id = ?",
-            (file_id,)
-        )
-        rows = cursor.fetchall()
-
-        if not rows:
-            print("⚠️ No vectors found for this file")
-            return
-
-        vector_ids = [row[0] for row in rows]
-
-        # ---- Remove from FAISS ----
-        index.remove_ids(np.array(vector_ids, dtype="int64"))
-
-        # ---- Delete from DB ----
-        cursor.execute(
-            "DELETE FROM vector_mapping WHERE file_id = ?",
-            (file_id,)
-        )
-        conn.commit()
-
-        # ---- Save updated FAISS index ----
-        save_index(index)
-
-        print(f"🧹 Deleted vectors for file_id {file_id}")
-
-    except Exception as e:
-        print(f"❌ Vector Deletion Error: {e}")
 
     finally:
         conn.close()

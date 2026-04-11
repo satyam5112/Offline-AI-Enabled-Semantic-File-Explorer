@@ -35,15 +35,15 @@ def initialize_database():
     """)
 
     # File Content Table (for extractor)
-    cursor.execute(f"""
-    CREATE TABLE IF NOT EXISTS {FILE_CONTENTS_TABLE} (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        file_id INTEGER,
-        content TEXT,
-        last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        FOREIGN KEY (file_id) REFERENCES {FILES_TABLE}(id)
-    )
-    """)
+    # cursor.execute(f"""
+    # CREATE TABLE IF NOT EXISTS {FILE_CONTENTS_TABLE} (
+    #     id INTEGER PRIMARY KEY AUTOINCREMENT,
+    #     file_id INTEGER,
+    #     content TEXT,
+    #     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    #     FOREIGN KEY (file_id) REFERENCES {FILES_TABLE}(id)
+    # )
+    # """)
 
     # -------------------------------
     # Vector Mapping Table (FAISS ↔ Files)

@@ -5,9 +5,9 @@ from watchdog.observers import Observer
 from watchdog.events import FileSystemEventHandler
 
 # Import your modules
-from backend.indexer.indexer import process_file, delete_file_record  
+from backend.indexer.indexer import process_file
 from backend.extractor.extractor import extract_file
-from backend.vectorizer.vectorizer import run_vectorizer, delete_vectors
+from backend.vectorizer.vectorizer import run_vectorizer
 from backend.queue.file_queue import file_queue, queued_files
 from backend.queue.worker import worker
 
@@ -23,7 +23,7 @@ SUPPORTED_EXTENSIONS = (".pdf", ".docx", ".jpg", ".png", ".csv")
 class FileHandler(FileSystemEventHandler):
 
     # ------------------ CREATE ------------------
-    def on_created(event):
+    def on_created(file_path, event):
         if event.is_directory:
             return
 
@@ -38,7 +38,7 @@ class FileHandler(FileSystemEventHandler):
         file_queue.put(("create", file_path))
 
     # ------------------ MODIFY ------------------
-    def on_modified(event):
+    def on_modified(file_path, event):
         if event.is_directory:
             return
         
