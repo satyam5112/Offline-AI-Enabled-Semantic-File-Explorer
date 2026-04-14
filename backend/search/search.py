@@ -113,7 +113,7 @@ def search_files(query, top_k=30, file_type=None, folder=None):
 
             final_score = (0.8 * semantic_score) + (0.2 * keyword_match)
 
-            threshold = 0.3
+            threshold = 0.2
             if final_score < threshold:
                 continue
 
