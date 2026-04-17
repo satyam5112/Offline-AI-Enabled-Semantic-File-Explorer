@@ -1,0 +1,60 @@
+/* General Page Styling */
+body {
+    font-family: Arial, sans-serif;
+    margin: 40px;
+    background-color: #f5f5f5;
+}
+
+/* Headings */
+h2 {
+    color: #333;
+}
+
+/* Input & Buttons */
+input, button {
+    padding: 8px;
+    margin: 5px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+}
+
+button {
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+/* Results Section */
+ul {
+    list-style: none;
+    padding: 0;
+}
+
+li {
+    background: white;
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Highlighted text */
+mark {
+    background-color: yellow;
+    font-weight: bold;
+}
+
+/* Open file button */
+a {
+    text-decoration: none;
+    color: #28a745;
+    font-weight: bold;
+}
+
+a:hover {
+    text-decoration: underline;
+}

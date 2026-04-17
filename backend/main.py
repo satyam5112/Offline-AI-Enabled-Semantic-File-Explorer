@@ -1,3 +1,7 @@
+# To run the file watcher and CLI search simultaneously,
+# we can use threading to run both tasks in parallel.  
+# #for Command Line Interface (CLI) search  
+
 import threading
 from backend.automation.file_watcher import start_watching
 from backend.search.cli_search import run_cli

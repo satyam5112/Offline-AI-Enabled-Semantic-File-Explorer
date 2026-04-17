@@ -15,6 +15,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 INDEX_PATH = os.path.join(BASE_DIR, "vectorizer", "faiss_index.bin")
 
 index = faiss.read_index(INDEX_PATH)
+#  to check wheteher FAISS index is loading correctly or not
+# print("🚀 FAISS index loaded")
+# print("📊 Total vectors in index:", index.ntotal)
+# print("📁 Index path:", INDEX_PATH)
 
 # -------------------------------
 # 🔥 Clean query
@@ -53,6 +57,13 @@ def keyword_score(text, words):
         score += text.count(w)
     return score
 
+# Highlight Keywords Feature
+
+def highlight_text(text, keywords):
+    for word in keywords:
+        if word:
+            text = text.replace(word, f"<mark>{word}</mark>")
+    return str(text)
 
 # -------------------------------
 # 🔍 MAIN SEARCH FUNCTION
@@ -108,24 +119,26 @@ def search_files(query, top_k=30, file_type=None, folder=None):
                 continue
 
             # ---- Step 5: Scoring ----
-            semantic_score = 1 / (1 + distance)
-            keyword_match = keyword_score(chunk_text, clean_words)
+            semantic_score = float(1 / (1 + distance))
+            keyword_match = float(keyword_score(chunk_text, clean_words))
 
-            final_score = (0.8 * semantic_score) + (0.2 * keyword_match)
+            final_score = float((0.8 * semantic_score) + (0.2 * keyword_match))
 
-            threshold = 0.2
-            if final_score < threshold:
-                continue
+            # threshold = 0.2
+            # if final_score < threshold:
+            #     continue
 
             # ---- Step 6: Highlight ----
-            highlighted_chunk = highlight_text(chunk_text, query)
+            highlighted_chunk = highlight_text(chunk_text.lower(), clean_words)
+            
+            chunk_text = str(chunk_text)
 
             results.append({
                 "file_name": file_name,
                 "file_path": file_path,
                 "folder": file_folder,
                 "chunk": highlighted_chunk,
-                "score": final_score
+                "score": float(final_score)
             })
 
         # ---- Step 7: Sort by score ----
@@ -136,10 +149,19 @@ def search_files(query, top_k=30, file_type=None, folder=None):
         final_results = []
 
         for r in results:
-            if r["file_path"] not in seen:
-                seen.add(r["file_path"])
+            path = r["file_path"]
+
+            if path not in seen:
+                seen.add(path)
                 final_results.append(r)
 
+        final_results = sorted(final_results, key=lambda x: x["score"], reverse=True)
+        
+        for r in final_results:
+            r["score"] = float(r["score"])
+
+        print(type(final_results[0]))
+        print("DEBUG RESULT SAMPLE:", final_results[:2])
         return final_results[:5]
     
     except Exception as e:
@@ -148,3 +170,17 @@ def search_files(query, top_k=30, file_type=None, folder=None):
 
     finally:
         conn.close()
+
+# if __name__ == "__main__":
+#     while True:
+#         query = input("\nEnter search query: ").strip()
+#         if query.lower() == "exit":
+#             break
+
+#         results = search_files(query)
+
+#         print("\n📄 Results:\n")
+#         for i, r in enumerate(results, 1):
+#             print(f"{i}. {r['file_name']} ({r['folder']})")
+#             print(f"   Score: {round(r['score'], 3)}")
+#             print(f"   → {r['chunk'][:150]}...\n")

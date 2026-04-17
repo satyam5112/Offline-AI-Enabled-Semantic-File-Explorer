@@ -1,0 +1,164 @@
+from fastapi import FastAPI, Form, UploadFile, File
+from fastapi.responses import RedirectResponse, FileResponse
+from fastapi.templating import Jinja2Templates
+from fastapi.requests import Request
+from pydantic import BaseModel
+from backend.search.search import search_files
+import shutil
+import os
+from backend.configuration import BASE_FOLDER_ADDRESS
+from fastapi.staticfiles import StaticFiles
+
+app = FastAPI()
+templates = Jinja2Templates(directory="backend/api/templates")
+app.mount("/static", StaticFiles(directory="backend/api/static"), name="static")
+
+
+# ---- Request Model ----
+class SearchRequest(BaseModel):
+    query: str
+    file_type: str | None = None
+    folder: str | None = None
+
+
+# ---- API Endpoint ----
+# @app.post("/search-ui")
+# def search_ui(
+#     request: Request,
+#     query: str = Form(...),
+#     file_type: str = Form(None),
+#     folder: str = Form(None)
+# ):
+#     results = search_files(
+#         query=query,
+#         file_type=file_type if file_type else None,
+#         folder=folder if folder else None
+#     )
+#     return templates.TemplateResponse(
+#         "index.html",
+#         {"request": request, "results": results}
+#     )
+@app.post("/search-ui")
+def search_ui(request: Request,
+              query: str = Form(...),
+              file_type: str = Form(None),
+              folder: str = Form(None)):
+
+    try:
+        results = search_files(
+            query=query,
+            file_type=file_type if file_type else None,
+            folder=folder if folder else None
+        )
+        
+        if not query.strip():
+            return templates.TemplateResponse(
+                "index.html",
+                {"request": request, "results": [], "count": 0}
+            )
+
+        return templates.TemplateResponse(
+            "index.html",
+            {"request": request, "results": results}
+        )
+        # return {"results": results}
+    
+    except Exception as e:
+        print("❌ ERROR:", e)
+        return {"error": str(e)}
+
+
+@app.get("/open")
+def open_file(path: str):
+    full_path = os.path.join(BASE_FOLDER_ADDRESS, path)
+
+    if not os.path.exists(full_path):
+        return {"error": "File not found"}
+
+    return FileResponse(full_path)
+
+@app.post("/reset")
+def reset_db():
+    import sqlite3
+    from backend.configuration import DB_LOCATION
+    from backend.vectorizer.faiss_index import index, save_index
+
+    conn = sqlite3.connect(DB_LOCATION)
+    cursor = conn.cursor()
+
+    cursor.execute("DELETE FROM files")
+    cursor.execute("DELETE FROM vector_mapping")
+
+    conn.commit()
+    conn.close()
+
+    index.reset()
+    save_index(index)
+
+    return {"message": "Database reset successful"}
+
+@app.post("/upload")
+def upload_files(files: list[UploadFile] = File(...)):
+
+    allowed_ext = {".txt", ".pdf", ".jpg", ".jpeg", ".png", ".csv"}
+    
+    for file in files:
+        filename = file.filename
+        ext = os.path.splitext(filename)[1].lower()
+
+        if ext not in allowed_ext:
+            continue
+
+        folder_map = {
+            ".txt": "Text files",
+            ".pdf": "PDF Files",
+            ".jpg": "Image Files",
+            ".jpeg": "Image Files",
+            ".png": "Image Files",
+            ".csv": "CSV Files"
+        }
+
+        folder = folder_map.get(ext, "Others")
+        folder_path = os.path.join(BASE_FOLDER_ADDRESS, folder)
+
+        os.makedirs(folder_path, exist_ok=True)
+
+        save_path = os.path.join(folder_path, filename)
+
+        if os.path.exists(save_path):
+            print(f"⚠️ File already exists: {filename}")
+            continue
+
+        with open(save_path, "wb") as buffer:
+            shutil.copyfileobj(file.file, buffer)
+
+    return RedirectResponse(url="/", status_code=303)
+
+@app.get("/status")
+def status():
+    import sqlite3
+    from backend.configuration import DB_LOCATION
+    from backend.vectorizer.faiss_index import index
+
+    conn = sqlite3.connect(DB_LOCATION)
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT COUNT(*) FROM files")
+    file_count = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM vector_mapping")
+    vector_count = cursor.fetchone()[0]
+
+    conn.close()
+
+    return {
+        "files": file_count,
+        "vectors": vector_count,
+        "faiss_vectors": index.ntotal
+    }
+
+
+# ---- Root Endpoint (test) ----
+@app.get("/")
+def home(request: Request):
+    return templates.TemplateResponse("index.html", {"request": request})

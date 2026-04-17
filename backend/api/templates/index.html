@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>DocS AI</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+    <h2>🔍 AI File Search</h2>
+
+    <!-- 🔍 SEARCH FORM -->
+    <form method="post" action="/search-ui">
+        <input type="text" name="query" placeholder="Enter search query" required>
+        <input type="text" name="file_type" placeholder="Filter by extension">
+        <input type="text" name="folder" placeholder="Filter by folder">
+        <button type="submit">Search</button>
+    </form>
+
+    <br>
+
+    <!-- 📁 FILE UPLOAD -->
+    <h3>📁 Add Files</h3>
+
+    <form action="/upload" method="post" enctype="multipart/form-data">
+        <input type="file" name="files" multiple 
+               accept=".txt,.pdf,.jpg,.jpeg,.png,.csv">
+        <button type="submit">Add Files</button>
+    </form>
+
+    <!-- ⚠️ REMOVE OR COMMENT THIS (you don't have /sync endpoint now) -->
+    <!--
+    <form method="post" action="/sync">
+        <button type="submit">🔄 Sync Files</button>
+    </form>
+    -->
+
+    <!-- 🧹 RESET -->
+    <form method="post" action="/reset">
+        <button type="submit">🧹 Reset Database</button>
+    </form>
+
+    <hr>
+
+    <!-- 📄 RESULTS -->
+    {% if results is defined and results %}
+        <h3>📄 Results:</h3>
+        <ul>
+        {% for r in results %}
+            <li>
+                {% if r.file_name.endswith('.txt') %}
+                    📄
+                {% elif r.file_name.endswith('.pdf') %}
+                    📕
+                {% elif r.file_name.endswith('.jpg') or r.file_name.endswith('.png') %}
+                    🖼️
+                {% elif r.file_name.endswith('.csv') %}
+                    📊
+                {% else %}
+                    📁
+                {% endif %}
+
+                <b>{{ r.file_name }}</b>
+
+                ({{ r.folder }})<br>
+
+                <!-- 🔥 SAFE SCORE -->
+                Score: {{ r.score | float }}<br>
+
+                <a href="/open?path={{ r.file_path }}" target="_blank">📂 Open File</a><br>
+
+                <!-- 🔥 SAFE TEXT DISPLAY -->
+                <span style="background-color: yellow;">
+                    {{ (r.chunk or "")[:150] | safe }}...
+                    <!-- {{ (r.chunk or "")[:150] }} -->
+                </span>
+            </li>
+        {% endfor %}
+        </ul>
+
+    {% elif results is defined %}
+        <p>No results found</p>
+    {% endif %}
+
+</body>
+</html>
