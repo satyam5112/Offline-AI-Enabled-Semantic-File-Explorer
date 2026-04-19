@@ -64,12 +64,12 @@
                 ({{ r.folder }})<br>
 
                 <!-- 🔥 SAFE SCORE -->
-                Score: {{ r.score | float }}<br>
+                Score: {{ "%.2f" | format(r.score) }}
 
                 <a href="/open?path={{ r.file_path }}" target="_blank">📂 Open File</a><br>
 
                 <!-- 🔥 SAFE TEXT DISPLAY -->
-                <span style="background-color: yellow;">
+                    <span>{{ r.chunk | safe }}</span>
                     {{ (r.chunk or "")[:150] | safe }}...
                     <!-- {{ (r.chunk or "")[:150] }} -->
                 </span>
