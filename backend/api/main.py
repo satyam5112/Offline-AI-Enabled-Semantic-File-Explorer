@@ -2,19 +2,24 @@ import os
 import threading
 import subprocess
 import shutil
-
+import sqlite3
+from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI, Form, UploadFile, File
+from fastapi import UploadFile, File
+from typing import List
 from fastapi.responses import RedirectResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
 from pydantic import BaseModel
 from backend.search.search import search_files
-from backend.configuration import BASE_FOLDER_ADDRESS
+from backend.configuration import DB_LOCATION, BASE_FOLDER_ADDRESS
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from backend.automation.file_watcher import start_watching
-from backend.configuration import BASE_FOLDER_ADDRESS
-
+from backend.resetter.reset import reset_db
+from backend.vectorizer.faiss_index import index, save_index
+from backend.queue.notifications import notification_queue
+from backend.resetter.reset import reset_db
 
 
 @asynccontextmanager
@@ -28,6 +33,8 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)
 
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
 templates = Jinja2Templates(directory="backend/api/templates")
 app.mount("/static", StaticFiles(directory="backend/api/static"), name="static")
@@ -41,6 +48,58 @@ class SearchRequest(BaseModel):
 
 def run_watcher():
     start_watching(BASE_FOLDER_ADDRESS)
+
+@app.get("/status")
+def status():
+
+    conn = sqlite3.connect(DB_LOCATION)
+    cursor = conn.cursor()
+    cursor.execute("SELECT COUNT(*) FROM files")
+    total_files = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM vector_mapping")
+    total_vectors = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM files WHERE extension='.txt'")
+    txt_count = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM files WHERE extension='.pdf'")
+    pdf_count = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM files WHERE extension IN ('.jpg','.jpeg','.png')")
+    img_count = cursor.fetchone()[0]
+    cursor.execute("SELECT COUNT(*) FROM files WHERE extension='.csv'")
+    csv_count = cursor.fetchone()[0]
+    conn.close()
+    return {"total_files": total_files, "total_vectors": total_vectors,
+            "txt_count": txt_count, "pdf_count": pdf_count,
+            "img_count": img_count, "csv_count": csv_count}
+
+@app.get("/")
+def home(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={"stats": status(), "msg": msg}    
+    )
+
+@app.get("/files")
+def my_files(request: Request):
+    conn = sqlite3.connect(DB_LOCATION)
+    cursor = conn.cursor()
+    
+    cursor.execute("SELECT name, extension, folder, path FROM files ORDER BY name")
+    rows = cursor.fetchall()
+    conn.close()
+
+    # Group by folder type
+    files = {"Text Files": [], "PDF Files": [], "Image Files": [], "CSV Files": []}
+    
+    for name, extension, folder, path in rows:
+        if folder in files:
+            files[folder].append({"name": name, "extension": extension, "path": path})
+
+    return templates.TemplateResponse(
+        request=request,
+        name="files.html",
+        context={"files": files, "stats": status()}
+    )
 
 @app.post("/search-ui")
 def search_ui(request: Request,
@@ -65,13 +124,20 @@ def search_ui(request: Request,
         return templates.TemplateResponse(
             request=request,              # ✅ pass as keyword arg
             name="index.html",
-            context={"results": results, "count": len(results)}
+            context={"results": results, "stats": status()}
         )
 
     except Exception as e:
         print("❌ ERROR:", e)
         return {"error": str(e)}
 
+@app.get("/search-ui")
+def search_ui_get(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="index.html",
+        context={"stats": status(), "msg": msg}
+    )
 
 @app.get("/open")
 def open_file(path: str):
@@ -82,100 +148,98 @@ def open_file(path: str):
 
     return FileResponse(full_path)
 
-@app.post("/reset")
-def reset_db():
-    import sqlite3
-    from backend.configuration import DB_LOCATION
-    from backend.vectorizer.faiss_index import index, save_index
+# @app.post("/upload")
+# async def upload_files(files: List[UploadFile] = File(...)):
+#     allowed_ext = {".txt", ".pdf", ".jpg", ".jpeg", ".png", ".csv"}
+    
+#     for file in files:
+#         filename = file.filename
+#         ext = os.path.splitext(filename)[1].lower()
 
-    conn = sqlite3.connect(DB_LOCATION)
-    cursor = conn.cursor()
+#         if ext not in allowed_ext:
+#             continue
 
-    cursor.execute("DELETE FROM files")
-    cursor.execute("DELETE FROM vector_mapping")
+#         folder_map = {
+#             ".txt": "Text files",
+#             ".pdf": "PDF Files",
+#             ".jpg": "Image Files",
+#             ".jpeg": "Image Files",
+#             ".png": "Image Files",
+#             ".csv": "CSV Files"
+#         }
 
-    conn.commit()
-    conn.close()
+#         folder = folder_map.get(ext, "Others")
+#         folder_path = os.path.join(BASE_FOLDER_ADDRESS, folder)
 
-    index.reset()
-    save_index(index)
+#         os.makedirs(folder_path, exist_ok=True)
 
-    return {"message": "Database reset successful"}
+#         save_path = os.path.join(folder_path, filename)
+
+#         if os.path.exists(save_path):
+#             print(f"⚠️ File already exists: {filename}")
+#             continue
+
+#         with open(save_path, "wb") as buffer:
+#             shutil.copyfileobj(file.file, buffer)
+
+#     return RedirectResponse(url="/", status_code=303)
 
 @app.post("/upload")
-def upload_files(files: list[UploadFile] = File(...)):
-
+def upload_files(files: List[UploadFile] = File(...)):
     allowed_ext = {".txt", ".pdf", ".jpg", ".jpeg", ".png", ".csv"}
-    
-    for file in files:
-        filename = file.filename
-        ext = os.path.splitext(filename)[1].lower()
-
-        if ext not in allowed_ext:
-            continue
-
-        folder_map = {
-            ".txt": "Text files",
-            ".pdf": "PDF Files",
-            ".jpg": "Image Files",
-            ".jpeg": "Image Files",
-            ".png": "Image Files",
-            ".csv": "CSV Files"
-        }
-
-        folder = folder_map.get(ext, "Others")
-        folder_path = os.path.join(BASE_FOLDER_ADDRESS, folder)
-
-        os.makedirs(folder_path, exist_ok=True)
-
-        save_path = os.path.join(folder_path, filename)
-
-        if os.path.exists(save_path):
-            print(f"⚠️ File already exists: {filename}")
-            continue
-
-        with open(save_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-    return {"status": "uploaded", "files": [f.filename for f in files]}
-    # return RedirectResponse(url="/", status_code=303)
-
-@app.get("/status")
-def status():
-    import sqlite3
-    from backend.configuration import DB_LOCATION
-    from backend.vectorizer.faiss_index import index
-
-    conn = sqlite3.connect(DB_LOCATION)
-    cursor = conn.cursor()
-
-    cursor.execute("SELECT COUNT(*) FROM files")
-    file_count = cursor.fetchone()[0]
-
-    cursor.execute("SELECT COUNT(*) FROM vector_mapping")
-    vector_count = cursor.fetchone()[0]
-
-    conn.close()
-
-    return {
-        "files": file_count,
-        "vectors": vector_count,
-        "faiss_vectors": index.ntotal
+    folder_map = {
+        ".txt": "Text Files",
+        ".pdf": "PDF Files",
+        ".jpg": "Image Files",
+        ".jpeg": "Image Files",
+        ".png": "Image Files",
+        ".csv": "CSV Files"
     }
 
+    try:
+        uploaded = []
+        for file in files:
+            filename = file.filename
+            ext = os.path.splitext(filename)[1].lower()
 
-# ---- Root Endpoint (test) ----
-@app.get("/")
-def home(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="index.html",
-        context={"results": [], "count": 0}
-    )
+            if ext not in allowed_ext:
+                continue
 
-@app.get("/search-ui")
-def search_ui_get(request: Request):
-    return templates.TemplateResponse(
-        request=request,
-        name="index.html",
-        context={"results": [], "count": 0}
-    )
+            folder = folder_map.get(ext, "Others")
+            folder_path = os.path.join(BASE_FOLDER_ADDRESS, folder)
+            os.makedirs(folder_path, exist_ok=True)
+            save_path = os.path.join(folder_path, filename)
+
+            if os.path.exists(save_path):
+                print(f"⚠️ File already exists: {filename}")
+                continue
+
+            with open(save_path, "wb") as buffer:
+                shutil.copyfileobj(file.file, buffer)
+
+            uploaded.append(filename)
+
+        if uploaded:
+            msg = f"✅ Successfully added: {', '.join(uploaded)}"
+        else:
+            msg = "⚠️ No new files were added (already exist or unsupported format)"
+
+        return RedirectResponse(url=f"/?msg={msg}", status_code=303)
+
+    except Exception as e:
+        return RedirectResponse(url=f"/?msg=❌ Upload failed: {str(e)}", status_code=303)
+
+@app.post("/reset")
+def reset_db_route():
+    try:
+        result = reset_db()
+        return RedirectResponse(url="/", status_code=303)
+    except Exception as e:
+        print(f"❌ Reset Error: {e}")
+        return {"error": str(e)}
+
+@app.get("/notifications")
+def get_notifications():
+    messages = list(notification_queue)
+    notification_queue.clear()  
+    return {"notifications": messages}

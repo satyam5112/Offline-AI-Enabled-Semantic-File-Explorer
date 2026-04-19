@@ -1,10 +1,11 @@
+import os
 import time
-from backend.queue.file_queue import file_queue, queued_files
+from backend.indexer.indexer import process_file
 from backend.extractor.extractor import extract_file
 from backend.vectorizer.vectorizer import run_vectorizer
-from backend.indexer.indexer import process_file
 from backend.deleter.deleter import delete_file_records
-
+from backend.queue.file_queue import file_queue, queued_files
+from backend.queue.notifications import notify_user
 
 def worker():
     print("🚀 Worker started...\n")
@@ -20,8 +21,21 @@ def worker():
 
                 content = extract_file(file_path)
 
-                if content:
-                    run_vectorizer(file_id, content)
+                if not content or len(content.strip()) < 10:
+                    print(f"❌ Extraction failed for: {file_path}")
+                    print(f"🗑️ Rolling back index for file_id: {file_id}")
+
+                    # ✅ Notify user
+                    failed_filename = os.path.basename(file_path)
+                    notify_user(f"❌ Data extraction failed for '{failed_filename}'. Indexing deleted. Please try again.")
+                    
+                    # ✅ Delete index record
+                    delete_file_records(file_path)
+                    
+                    file_queue.task_done()
+                    continue
+
+                run_vectorizer(file_id, content)
 
             elif task_type == "delete":
                 delete_file_records(file_path)

@@ -37,17 +37,6 @@ def clean_query(query):
 
 
 # -------------------------------
-# 🔥 Highlight matched words
-# -------------------------------
-def highlight_text(text, query):
-    words = query.lower().split()
-    for word in words:
-        pattern = re.compile(re.escape(word), re.IGNORECASE)
-        text = pattern.sub(lambda m: f"[{m.group(0)}]", text)
-    return text
-
-
-# -------------------------------
 # 🔥 Keyword scoring
 # -------------------------------
 def keyword_score(text, words):
@@ -155,13 +144,11 @@ def search_files(query, top_k=30, file_type=None, folder=None):
                 seen.add(path)
                 final_results.append(r)
 
-        final_results = sorted(final_results, key=lambda x: x["score"], reverse=True)
-        
-        for r in final_results:
-            r["score"] = float(r["score"])
+        final_results = sorted(final_results, key=lambda x: x["score"], reverse=True)   
 
-        print(type(final_results[0]))
-        print("DEBUG RESULT SAMPLE:", final_results[:2])
+        # print(type(final_results[0]))
+        # print("DEBUG RESULT SAMPLE:", final_results[:2])
+
         return final_results[:5]
     
     except Exception as e:

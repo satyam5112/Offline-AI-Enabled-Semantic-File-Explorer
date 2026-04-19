@@ -44,7 +44,8 @@ def extract_pdf(file_path):
         images = convert_from_path(
             file_path,
             first_page=1,
-            last_page=3  # 🔥 limit for speed
+            last_page=3,  # 🔥 limit for speed
+            poppler_path=r"C:\poppler\Library\bin"
         )
     except Exception as e:
         print(f"[ERROR] PDF to image conversion failed: {e}")

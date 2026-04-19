@@ -1,85 +1,224 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>DocS AI</title>
     <link rel="stylesheet" href="/static/styles.css">
 </head>
 <body>
-
-    <h2>🔍 AI File Search</h2>
-
-    <!-- 🔍 SEARCH FORM -->
-    <form method="post" action="/search-ui">
-        <input type="text" name="query" placeholder="Enter search query" required>
-        <input type="text" name="file_type" placeholder="Filter by extension">
-        <input type="text" name="folder" placeholder="Filter by folder">
-        <button type="submit">Search</button>
-    </form>
-
-    <br>
-
-    <!-- 📁 FILE UPLOAD -->
-    <h3>📁 Add Files</h3>
-
-    <form action="/upload" method="post" enctype="multipart/form-data">
-        <input type="file" name="files" multiple 
-               accept=".txt,.pdf,.jpg,.jpeg,.png,.csv">
-        <button type="submit">Add Files</button>
-    </form>
-
-    <!-- ⚠️ REMOVE OR COMMENT THIS (you don't have /sync endpoint now) -->
-    <!--
-    <form method="post" action="/sync">
-        <button type="submit">🔄 Sync Files</button>
-    </form>
-    -->
-
-    <!-- 🧹 RESET -->
-    <form method="post" action="/reset">
-        <button type="submit">🧹 Reset Database</button>
-    </form>
-
-    <hr>
-
-    <!-- 📄 RESULTS -->
-    {% if results is defined and results %}
-        <h3>📄 Results:</h3>
-        <ul>
-        {% for r in results %}
-            <li>
-                {% if r.file_name.endswith('.txt') %}
-                    📄
-                {% elif r.file_name.endswith('.pdf') %}
-                    📕
-                {% elif r.file_name.endswith('.jpg') or r.file_name.endswith('.png') %}
-                    🖼️
-                {% elif r.file_name.endswith('.csv') %}
-                    📊
-                {% else %}
-                    📁
-                {% endif %}
-
-                <b>{{ r.file_name }}</b>
-
-                ({{ r.folder }})<br>
-
-                <!-- 🔥 SAFE SCORE -->
-                Score: {{ "%.2f" | format(r.score) }}
-
-                <a href="/open?path={{ r.file_path }}" target="_blank">📂 Open File</a><br>
-
-                <!-- 🔥 SAFE TEXT DISPLAY -->
-                    <span>{{ r.chunk | safe }}</span>
-                    {{ (r.chunk or "")[:150] | safe }}...
-                    <!-- {{ (r.chunk or "")[:150] }} -->
-                </span>
-            </li>
-        {% endfor %}
-        </ul>
-
-    {% elif results is defined %}
-        <p>No results found</p>
+    {% if msg %}
+    <div id="toast" class="toast {% if '✅' in msg %}toast-success{% elif '❌' in msg %}toast-error{% else %}toast-warning{% endif %}">
+        {{ msg }}
+    </div>
+    <script>
+        setTimeout(() => {
+            const toast = document.getElementById('toast');
+            if (toast) {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 400);
+            }
+        }, 4000);
+    </script>
     {% endif %}
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="logo">
+            <div class="logo-icon">D</div>
+            DocS AI
+        </div>
+        <nav>
+            <a href="/" class="nav-item active">🔍 Search</a>
+            <a href="/files" class="nav-item">📁 My Files</a>
+        </nav>
+        <div class="sidebar-bottom">
+            <form method="post" action="/reset"
+                  onsubmit="return confirm('Are you sure you want to reset everything?')">
+                <button class="btn-reset-nav" type="submit">🗑️ Reset Database</button>
+            </form>
+        </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+
+        <!-- TOP BAR -->
+        <div class="topbar">
+            <div>
+                <h1 class="page-title">AI File Search</h1>
+                <p class="page-sub">Semantic search across all your indexed documents</p>
+            </div>
+        </div>
+
+        <!-- STATS ROW -->
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-icon">📄</div>
+                <div class="stat-label">Total Files</div>
+                <div class="stat-value">{{ stats.total_files if stats else '—' }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🧠</div>
+                <div class="stat-label">Vectors Indexed</div>
+                <div class="stat-value">{{ stats.total_vectors if stats else '—' }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📂</div>
+                <div class="stat-label">Folders</div>
+                <div class="stat-value">4</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🔎</div>
+                <div class="stat-label">Results Found</div>
+                <div class="stat-value">{{ results | length if results else '0' }}</div>
+            </div>
+        </div>
+
+        <!-- SEARCH FORM -->
+        <div class="search-card">
+            <div class="search-label">Search your documents</div>
+            <form method="post" action="/search-ui" class="search-row">
+                <input class="search-input" type="text" name="query"
+                       placeholder="🔍  Enter search query..." required>
+                <input class="filter-input" type="text" name="file_type"
+                       placeholder="Extension (.pdf)">
+                <input class="filter-input" type="text" name="folder"
+                       placeholder="Folder name">
+                <button class="btn-primary" type="submit">Search</button>
+            </form>
+        </div>
+
+        <!-- PANEL ROW -->
+        <div class="panel-row">
+
+            <!-- RESULTS -->
+            <div class="results-card">
+                <div class="results-header">
+                    <div class="results-title">Results</div>
+                    {% if results is defined and results %}
+                        <span class="badge">{{ results | length }} found</span>
+                    {% endif %}
+                </div>
+
+                {% if results is defined and results %}
+                    {% for r in results %}
+                    <div class="result-item">
+                        <div class="file-icon
+                            {% if r.file_name.endswith('.pdf') %}icon-pdf
+                            {% elif r.file_name.endswith('.csv') %}icon-csv
+                            {% elif r.file_name.endswith('.jpg') or r.file_name.endswith('.png') %}icon-img
+                            {% else %}icon-txt{% endif %}">
+                            {% if r.file_name.endswith('.pdf') %}📕
+                            {% elif r.file_name.endswith('.csv') %}📊
+                            {% elif r.file_name.endswith('.jpg') or r.file_name.endswith('.png') %}🖼️
+                            {% else %}📄{% endif %}
+                        </div>
+                        <div style="flex:1; min-width:0;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                                <div class="result-name">{{ r.file_name }}</div>
+                                <span class="score-badge">{{ r.score | round(3) }}</span>
+                            </div>
+                            <div class="result-folder">
+                                📂 {{ r.folder }} &nbsp;·&nbsp;
+                                <a class="open-link"
+                                   href="/open?path={{ r.file_path }}"
+                                   target="_blank">Open File ↗</a>
+                            </div>
+                            <div class="result-chunk">{{ r.chunk | safe }}...</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                {% elif results is defined %}
+                    <div class="no-results">
+                        <div style="font-size:40px; margin-bottom:12px;">🔍</div>
+                        <div style="font-weight:600; color:#374151;">No results found</div>
+                        <div style="font-size:13px; color:#94a3b8; margin-top:4px;">
+                            Try different keywords or remove filters
+                        </div>
+                    </div>
+
+                {% else %}
+                    <div class="no-results">
+                        <div style="font-size:40px; margin-bottom:12px;">✨</div>
+                        <div style="font-weight:600; color:#374151;">Ready to search</div>
+                        <div style="font-size:13px; color:#94a3b8; margin-top:4px;">
+                            Enter a query above to find your documents
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- SIDEBAR PANELS -->
+            <div>
+                <!-- UPLOAD -->
+                <div class="side-card">
+                    <div class="side-title">📁 Add Files</div>
+                    <form action="/upload" method="post" enctype="multipart/form-data">
+                        <label class="upload-zone" for="file-input">
+                            <div style="font-size:28px; margin-bottom:8px;">☁️</div>
+                            <div style="font-weight:600; color:#374151; margin-bottom:4px;">
+                                Drop files here
+                            </div>
+                            <div id="file-label">or click to browse</div>
+                            <div style="margin-top:8px; font-size:11px; color:#94a3b8;">
+                                .txt &nbsp;·&nbsp; .pdf &nbsp;·&nbsp; .jpg &nbsp;·&nbsp; .png &nbsp;·&nbsp; .csv
+                            </div>
+                        </label>
+                        <input type="file" id="file-input" name="files" multiple
+                               accept=".txt,.pdf,.jpg,.jpeg,.png,.csv"
+                               style="display:none;"
+                               onchange="updateLabel(this)">
+                        <button class="btn-upload" type="submit">+ Add Files</button>
+                    </form>
+                </div>
+
+                <!-- FILE TYPE BREAKDOWN -->
+                <div class="side-card">
+                    <div class="side-title">📊 File Types</div>
+                    <div class="meta-row">
+                        <span>📄 Text Files</span>
+                        <span class="meta-count">{{ stats.txt_count if stats else '—' }}</span>
+                    </div>
+                    <div class="meta-row">
+                        <span>📕 PDF Files</span>
+                        <span class="meta-count">{{ stats.pdf_count if stats else '—' }}</span>
+                    </div>
+                    <div class="meta-row">
+                        <span>🖼️ Image Files</span>
+                        <span class="meta-count">{{ stats.img_count if stats else '—' }}</span>
+                    </div>
+                    <div class="meta-row">
+                        <span>📊 CSV Files</span>
+                        <span class="meta-count">{{ stats.csv_count if stats else '—' }}</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- NOTIFICATION SCRIPT -->
+    <script>
+        function updateLabel(input) {
+            const label = document.getElementById('file-label');
+            if (input.files.length > 0) {
+                label.textContent = input.files.length === 1
+                    ? input.files[0].name
+                    : `${input.files.length} files selected`;
+            }
+        }
+
+        setInterval(async () => {
+            try {
+                const res = await fetch('/notifications');
+                const data = await res.json();
+                if (data.notifications && data.notifications.length > 0) {
+                    data.notifications.forEach(msg => alert(msg));
+                }
+            } catch (e) {}
+        }, 5000);
+    </script>
 
 </body>
 </html>

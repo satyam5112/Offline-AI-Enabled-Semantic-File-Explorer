@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocS AI — My Files</title>
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="logo">
+            <div class="logo-icon">D</div>
+            DocS AI
+        </div>
+        <nav>
+            <a href="/" class="nav-item">🔍 Search</a>
+            <a href="/files" class="nav-item active">📁 My Files</a>
+        </nav>
+        <div class="sidebar-bottom">
+            <form method="post" action="/reset"
+                  onsubmit="return confirm('Are you sure you want to reset everything?')">
+                <button class="btn-reset-nav" type="submit">🗑️ Reset Database</button>
+            </form>
+        </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main">
+
+        <div class="topbar">
+            <div>
+                <h1 class="page-title">My Files</h1>
+                <p class="page-sub">All indexed files organized by type</p>
+            </div>
+        </div>
+
+        <!-- STATS ROW -->
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-icon">📄</div>
+                <div class="stat-label">Text Files</div>
+                <div class="stat-value">{{ files['Text Files'] | length }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📕</div>
+                <div class="stat-label">PDF Files</div>
+                <div class="stat-value">{{ files['PDF Files'] | length }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🖼️</div>
+                <div class="stat-label">Image Files</div>
+                <div class="stat-value">{{ files['Image Files'] | length }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">📊</div>
+                <div class="stat-label">CSV Files</div>
+                <div class="stat-value">{{ files['CSV Files'] | length }}</div>
+            </div>
+        </div>
+
+        <!-- FILE GRID -->
+        <div class="files-grid">
+
+            <!-- TEXT FILES -->
+            <div class="folder-card">
+                <div class="folder-header">
+                    <span class="folder-icon">📄</span>
+                    <span class="folder-title">Text Files</span>
+                    <span class="badge">{{ files['Text Files'] | length }}</span>
+                </div>
+                <div class="file-list">
+                    {% if files['Text Files'] %}
+                        {% for f in files['Text Files'] %}
+                        <div class="file-row">
+                            <span class="file-row-icon">📄</span>
+                            <span class="file-row-name" title="{{ f.name }}">{{ f.name }}</span>
+                            <a href="/open?path={{ f.path }}" target="_blank" class="file-open-btn">↗</a>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-folder">No files indexed yet</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- PDF FILES -->
+            <div class="folder-card">
+                <div class="folder-header">
+                    <span class="folder-icon">📕</span>
+                    <span class="folder-title">PDF Files</span>
+                    <span class="badge">{{ files['PDF Files'] | length }}</span>
+                </div>
+                <div class="file-list">
+                    {% if files['PDF Files'] %}
+                        {% for f in files['PDF Files'] %}
+                        <div class="file-row">
+                            <span class="file-row-icon">📕</span>
+                            <span class="file-row-name" title="{{ f.name }}">{{ f.name }}</span>
+                            <a href="/open?path={{ f.path }}" target="_blank" class="file-open-btn">↗</a>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-folder">No files indexed yet</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- IMAGE FILES -->
+            <div class="folder-card">
+                <div class="folder-header">
+                    <span class="folder-icon">🖼️</span>
+                    <span class="folder-title">Image Files</span>
+                    <span class="badge">{{ files['Image Files'] | length }}</span>
+                </div>
+                <div class="file-list">
+                    {% if files['Image Files'] %}
+                        {% for f in files['Image Files'] %}
+                        <div class="file-row">
+                            <span class="file-row-icon">🖼️</span>
+                            <span class="file-row-name" title="{{ f.name }}">{{ f.name }}</span>
+                            <a href="/open?path={{ f.path }}" target="_blank" class="file-open-btn">↗</a>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-folder">No files indexed yet</div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- CSV FILES -->
+            <div class="folder-card">
+                <div class="folder-header">
+                    <span class="folder-icon">📊</span>
+                    <span class="folder-title">CSV Files</span>
+                    <span class="badge">{{ files['CSV Files'] | length }}</span>
+                </div>
+                <div class="file-list">
+                    {% if files['CSV Files'] %}
+                        {% for f in files['CSV Files'] %}
+                        <div class="file-row">
+                            <span class="file-row-icon">📊</span>
+                            <span class="file-row-name" title="{{ f.name }}">{{ f.name }}</span>
+                            <a href="/open?path={{ f.path }}" target="_blank" class="file-open-btn">↗</a>
+                        </div>
+                        {% endfor %}
+                    {% else %}
+                        <div class="empty-folder">No files indexed yet</div>
+                    {% endif %}
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+</body>
+</html>
