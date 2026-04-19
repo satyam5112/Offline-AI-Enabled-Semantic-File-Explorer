@@ -20,6 +20,7 @@ from backend.resetter.reset import reset_db
 from backend.vectorizer.faiss_index import index, save_index
 from backend.queue.notifications import notification_queue
 from backend.resetter.reset import reset_db
+from urllib.parse import quote,unquote
 
 
 @asynccontextmanager
@@ -72,11 +73,11 @@ def status():
             "img_count": img_count, "csv_count": csv_count}
 
 @app.get("/")
-def home(request: Request):
+def home(request: Request, msg: str = ""):
+    msg = unquote(msg)  # ✅ decode the URL encoded message
     return templates.TemplateResponse(
-        request=request,
-        name="index.html",
-        context={"stats": status(), "msg": msg}    
+        request=request, name="index.html",
+        context={"stats": status(), "msg": msg}
     )
 
 @app.get("/files")
@@ -124,7 +125,7 @@ def search_ui(request: Request,
         return templates.TemplateResponse(
             request=request,              # ✅ pass as keyword arg
             name="index.html",
-            context={"results": results, "stats": status()}
+            context={"results": results, "stats": status(), "msg": ""}
         )
 
     except Exception as e:
@@ -136,7 +137,7 @@ def search_ui_get(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="index.html",
-        context={"stats": status(), "msg": msg}
+        context={"stats": status(), "msg": ""}
     )
 
 @app.get("/open")
@@ -147,42 +148,6 @@ def open_file(path: str):
         return {"error": "File not found"}
 
     return FileResponse(full_path)
-
-# @app.post("/upload")
-# async def upload_files(files: List[UploadFile] = File(...)):
-#     allowed_ext = {".txt", ".pdf", ".jpg", ".jpeg", ".png", ".csv"}
-    
-#     for file in files:
-#         filename = file.filename
-#         ext = os.path.splitext(filename)[1].lower()
-
-#         if ext not in allowed_ext:
-#             continue
-
-#         folder_map = {
-#             ".txt": "Text files",
-#             ".pdf": "PDF Files",
-#             ".jpg": "Image Files",
-#             ".jpeg": "Image Files",
-#             ".png": "Image Files",
-#             ".csv": "CSV Files"
-#         }
-
-#         folder = folder_map.get(ext, "Others")
-#         folder_path = os.path.join(BASE_FOLDER_ADDRESS, folder)
-
-#         os.makedirs(folder_path, exist_ok=True)
-
-#         save_path = os.path.join(folder_path, filename)
-
-#         if os.path.exists(save_path):
-#             print(f"⚠️ File already exists: {filename}")
-#             continue
-
-#         with open(save_path, "wb") as buffer:
-#             shutil.copyfileobj(file.file, buffer)
-
-#     return RedirectResponse(url="/", status_code=303)
 
 @app.post("/upload")
 def upload_files(files: List[UploadFile] = File(...)):
@@ -211,23 +176,22 @@ def upload_files(files: List[UploadFile] = File(...)):
             save_path = os.path.join(folder_path, filename)
 
             if os.path.exists(save_path):
-                print(f"⚠️ File already exists: {filename}")
                 continue
 
             with open(save_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
-
             uploaded.append(filename)
 
         if uploaded:
-            msg = f"✅ Successfully added: {', '.join(uploaded)}"
+            msg = quote(f"success: Successfully added: {', '.join(uploaded)}")
         else:
-            msg = "⚠️ No new files were added (already exist or unsupported format)"
+            msg = quote("warning: No new files added (already exist or unsupported)")
 
         return RedirectResponse(url=f"/?msg={msg}", status_code=303)
 
     except Exception as e:
-        return RedirectResponse(url=f"/?msg=❌ Upload failed: {str(e)}", status_code=303)
+        msg = quote(f"error: Upload failed: {str(e)}")
+        return RedirectResponse(url=f"/?msg={msg}", status_code=303)
 
 @app.post("/reset")
 def reset_db_route():
