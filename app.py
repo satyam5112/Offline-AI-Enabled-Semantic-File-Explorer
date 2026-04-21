@@ -3,6 +3,7 @@ import os
 import time
 import threading
 import subprocess
+from PyQt6.QtGui import QIcon, QPixmap
 
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout,
@@ -64,6 +65,11 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1280, 800)
         self.resize(1400, 900)
 
+        from PyQt6.QtGui import QIcon
+        icon_path = os.path.join(BASE_DIR, "logo.ico")
+        if os.path.exists(icon_path):
+            self.setWindowIcon(QIcon(icon_path))
+
         # ---- Central widget ----
         central = QWidget()
         self.setCentralWidget(central)
@@ -80,10 +86,30 @@ class MainWindow(QMainWindow):
         toolbar_layout.setSpacing(10)
 
         # App title
-        title_label = QLabel("⚡ DocS AI")
-        title_label.setStyleSheet("color:#fff; font-size:16px; font-weight:700;")
-        toolbar_layout.addWidget(title_label)
+        title_widget = QWidget()
+        title_layout = QHBoxLayout(title_widget)
+        title_layout.setContentsMargins(0, 0, 0, 0)
+        title_layout.setSpacing(8)
 
+        # Logo image
+        logo_label = QLabel()
+        logo_path = os.path.join(BASE_DIR, "logo.png")
+        if os.path.exists(logo_path):
+            pixmap = QPixmap(logo_path).scaled(
+                28, 28,
+                Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            )
+            logo_label.setPixmap(pixmap)
+
+        # App name
+        name_label = QLabel("DocS AI")
+        name_label.setStyleSheet("color:#fff; font-size:16px; font-weight:700;")
+
+        title_layout.addWidget(logo_label)
+        title_layout.addWidget(name_label)
+
+        toolbar_layout.addWidget(title_widget)
         toolbar_layout.addStretch()
 
         # ---- Refresh button ----
@@ -114,10 +140,11 @@ class MainWindow(QMainWindow):
         self.browser.setHtml("""
             <html>
             <body style="background:#0f172a; display:flex; align-items:center;
-                         justify-content:center; height:100vh; margin:0;
-                         font-family: -apple-system, sans-serif;">
+                        justify-content:center; height:100vh; margin:0;
+                        font-family: -apple-system, sans-serif;">
                 <div style="text-align:center;">
-                    <div style="font-size:48px; margin-bottom:16px;">⚡</div>
+                    <img src="http://127.0.0.1:8000/static/logo.png"
+                        style="width:80px; height:80px; margin-bottom:16px; border-radius:16px;">
                     <div style="color:#fff; font-size:24px; font-weight:700; margin-bottom:8px;">
                         DocS AI
                     </div>
@@ -196,77 +223,6 @@ class MainWindow(QMainWindow):
         
         event.accept()  # ✅ Allow window to close
 
-    # ---- Pick individual files ----
-    # def pick_files(self):
-    #     files, _ = QFileDialog.getOpenFileNames(
-    #         self,
-    #         "Select Files to Index",
-    #         os.path.expanduser("~"),
-    #         "Supported Files (*.txt *.pdf *.jpg *.jpeg *.png *.csv)"
-    #     )
-
-    #     if not files:
-    #         return
-
-    #     self.status_bar.showMessage(f"⏳ Indexing {len(files)} file(s)...")
-    #     threading.Thread(
-    #         target=self.index_files,
-    #         args=(files,),
-    #         daemon=True
-    #     ).start()
-
-    # # ---- Pick entire folder ----
-    # def pick_folder(self):
-    #     folder = QFileDialog.getExistingDirectory(
-    #         self,
-    #         "Select Folder to Index",
-    #         os.path.expanduser("~")
-    #     )
-
-    #     if not folder:
-    #         return
-
-    #     allowed_ext = {".txt", ".pdf", ".jpg", ".jpeg", ".png", ".csv"}
-    #     files = []
-    #     for root, dirs, filenames in os.walk(folder):
-    #         for filename in filenames:
-    #             ext = os.path.splitext(filename)[1].lower()
-    #             if ext in allowed_ext:
-    #                 files.append(os.path.join(root, filename))
-
-    #     if not files:
-    #         self.status_bar.showMessage("⚠️ No supported files found in folder")
-    #         return
-
-    #     self.status_bar.showMessage(f"⏳ Indexing {len(files)} file(s) from folder...")
-    #     threading.Thread(
-    #         target=self.index_files,
-    #         args=(files,),
-    #         daemon=True
-    #     ).start()
-
-    # # ---- Index files via queue ----
-    # def index_files(self, file_paths):
-    #     added = 0
-    #     skipped = 0
-
-    #     for path in file_paths:
-    #         if path in queued_files:
-    #             skipped += 1
-    #             continue
-
-    #         queued_files.add(path)
-    #         file_queue.put(("create", path))
-    #         added += 1
-
-    #     msg = f"✅ Queued {added} file(s) for indexing"
-    #     if skipped:
-    #         msg += f" ({skipped} skipped — already queued)"
-
-    #     QTimer.singleShot(500, lambda: self.status_bar.showMessage(msg))
-    #     QTimer.singleShot(3000, self.refresh_page)
-
-
 # ---- Splash Screen ----
 def show_splash():
     splash_widget = QSplashScreen()
@@ -305,6 +261,11 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setApplicationName("DocS AI")
     app.setStyle("Fusion")
+
+    from PyQt6.QtGui import QIcon
+    icon_path = os.path.join(BASE_DIR, "logo.ico")
+    if os.path.exists(icon_path):
+        app.setWindowIcon(QIcon(icon_path))
 
     # Show splash
     splash = show_splash()
