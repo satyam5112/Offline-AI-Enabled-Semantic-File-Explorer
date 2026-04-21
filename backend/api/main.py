@@ -1,8 +1,19 @@
+from fileinput import filename
+from importlib.resources import path
 import os
+from os import path
+import tempfile
 import threading
 import subprocess
 import shutil
 import sqlite3
+import tempfile
+
+
+from backend.automation.file_watcher import watched_paths
+from backend.scanner.folder_scanner import scan_folder
+from backend.automation.file_watcher import start_watching
+from backend.task_queue.file_queue import file_queue, queued_files
 from fastapi.staticfiles import StaticFiles
 from fastapi import FastAPI, Form, UploadFile, File
 from fastapi import UploadFile, File
@@ -12,7 +23,7 @@ from fastapi.templating import Jinja2Templates
 from fastapi.requests import Request
 from pydantic import BaseModel
 from backend.search.search import search_files
-from backend.configuration import DB_LOCATION, BASE_FOLDER_ADDRESS
+from backend.configuration import DB_LOCATION
 from fastapi.staticfiles import StaticFiles
 from contextlib import asynccontextmanager
 from backend.automation.file_watcher import start_watching
@@ -48,13 +59,14 @@ class SearchRequest(BaseModel):
     folder: str | None = None
 
 def run_watcher():
-    start_watching(BASE_FOLDER_ADDRESS)
+    start_watching(r"C:\Users\singh\OneDrive\Desktop")
 
 @app.get("/status")
 def status():
 
     conn = sqlite3.connect(DB_LOCATION)
     cursor = conn.cursor()
+
     cursor.execute("SELECT COUNT(*) FROM files")
     total_files = cursor.fetchone()[0]
     cursor.execute("SELECT COUNT(*) FROM vector_mapping")
@@ -142,64 +154,52 @@ def search_ui_get(request: Request):
 
 @app.get("/open")
 def open_file(path: str):
-    folders = ["Text Files", "PDF Files", "Image Files", "CSV Files"]
-    for folder in folders:
-        if path.startswith(folder) and not path.startswith(folder + "\\"):
-            path = folder + "\\" + path[len(folder):]
-            break
 
-    if not os.path.isabs(path):
-        full_path = os.path.normpath(os.path.join(BASE_FOLDER_ADDRESS, path))
-    else:
-        full_path = os.path.normpath(path)
+    # Normalize path (safety)
+    full_path = os.path.normpath(path)
 
+    print("📂 OPEN REQUEST:", full_path)  # debug
+
+    # Check if file exists
     if not os.path.exists(full_path):
         return {"error": f"File not found: {full_path}"}
 
     return FileResponse(full_path)
+
 @app.post("/upload")
-def upload_files(files: List[UploadFile] = File(...)):
+def upload_files(files: list[UploadFile] = File(...)):
+
     allowed_ext = {".txt", ".pdf", ".jpg", ".jpeg", ".png", ".csv"}
-    folder_map = {
-        ".txt": "Text Files",
-        ".pdf": "PDF Files",
-        ".jpg": "Image Files",
-        ".jpeg": "Image Files",
-        ".png": "Image Files",
-        ".csv": "CSV Files"
-    }
 
-    try:
-        uploaded = []
-        for file in files:
-            filename = file.filename
-            ext = os.path.splitext(filename)[1].lower()
+    # temp directory (OS managed, no duplication in project)
+    temp_dir = os.path.join(tempfile.gettempdir(), "ai_search_uploads")
+    os.makedirs(temp_dir, exist_ok=True)
 
-            if ext not in allowed_ext:
-                continue
+    for file in files:
+        filename = file.filename
+        ext = os.path.splitext(filename)[1].lower()
 
-            folder = folder_map.get(ext, "Others")
-            folder_path = os.path.join(BASE_FOLDER_ADDRESS, folder)
-            os.makedirs(folder_path, exist_ok=True)
-            save_path = os.path.join(folder_path, filename)
+        if ext not in allowed_ext:
+            print(f"❌ Skipped unsupported file: {filename}")
+            continue
 
-            if os.path.exists(save_path):
-                continue
+        temp_path = os.path.join(temp_dir, filename)
 
-            with open(save_path, "wb") as buffer:
+        try:
+            # Save temporarily
+            with open(temp_path, "wb") as buffer:
                 shutil.copyfileobj(file.file, buffer)
-            uploaded.append(filename)
 
-        if uploaded:
-            msg = quote(f"success: Successfully added: {', '.join(uploaded)}")
-        else:
-            msg = quote("warning: No new files added (already exist or unsupported)")
+            # print(f"📥 Uploaded (temp): {temp_path}")
 
-        return RedirectResponse(url=f"/?msg={msg}", status_code=303)
+            if temp_path not in queued_files:
+                queued_files.add(temp_path)
+                file_queue.put(("create", temp_path))
 
-    except Exception as e:
-        msg = quote(f"error: Upload failed: {str(e)}")
-        return RedirectResponse(url=f"/?msg={msg}", status_code=303)
+        except Exception as e:
+            print(f"❌ Upload error for {filename}: {e}")
+
+        return RedirectResponse(url="/", status_code=303)
 
 @app.post("/reset")
 def reset_db_route():
@@ -231,9 +231,9 @@ def open_native(path: str):
                 break
 
         if not os.path.isabs(path):
-            full_path = os.path.normpath(os.path.join(BASE_FOLDER_ADDRESS, path))
+            full_path = path
         else:
-            full_path = os.path.normpath(path)
+            full_path = path
 
         print(f"🔍 Trying to open: {full_path}")
 
@@ -242,6 +242,25 @@ def open_native(path: str):
             return {"status": "opened"}
 
         return {"error": f"File not found: {full_path}"}
+
+    except Exception as e:
+        return {"error": str(e)}
+    
+@app.post("/add-folder")
+def add_folder(path: str = Form(...)):
+    try:
+        if path in watched_paths:
+            return RedirectResponse(url="/?msg=warning:Folder already being watched",status_code=303)
+        if not os.path.exists(path):
+            return {"error": "Invalid folder path"}
+
+        # ✅ Run scan in background
+        threading.Thread(target=scan_folder, args=(path,), daemon=True).start()
+
+        # ✅ Run watcher in background
+        threading.Thread(target=start_watching, args=(path,), daemon=True).start()
+
+        return RedirectResponse(url="/?msg=success:Folder added successfully", status_code=303)
 
     except Exception as e:
         return {"error": str(e)}

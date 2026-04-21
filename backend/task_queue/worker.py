@@ -40,14 +40,10 @@ def worker():
             elif task_type == "delete":
                 delete_file_records(file_path)
 
-            # ✅ Remove from dedup set AFTER processing
-            if file_path in queued_files:
-                queued_files.remove(file_path)
-
-            file_queue.task_done()
-
-            time.sleep(0.3)
-
         except Exception as e:
             print(f"❌ Worker Error: {e}")
             time.sleep(1)
+        finally:
+            queued_files.discard(file_path) 
+            file_queue.task_done()
+            time.sleep(0.3)

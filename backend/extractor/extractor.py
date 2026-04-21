@@ -1,12 +1,10 @@
-from backend.configuration import BASE_FOLDER_ADDRESS
+from backend.configuration import DB_LOCATION
 
 from backend.extractor.image_extractor import extract_image
 from backend.extractor.pdf_extractor import extract_pdf
 from backend.extractor.txt_extractor import extract_txt
 from backend.extractor.csv_extractor import extract_csv
 from backend.extractor.utils import clean_text
-
-from backend.database.db import insert_file_content
 
 
 def extract_file(file_path):
@@ -15,9 +13,7 @@ def extract_file(file_path):
     if os.path.isabs(file_path):
             full_path = file_path
     else:
-        full_path = os.path.normpath(
-            os.path.join(BASE_FOLDER_ADDRESS, file_path)
-        )
+        full_path = file_path
     
     ext = os.path.splitext(file_path)[1].lower()
 

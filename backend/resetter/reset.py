@@ -1,44 +1,35 @@
 import sqlite3
 import shutil
 import os
-from backend.configuration import DB_LOCATION, BASE_FOLDER_ADDRESS
+from backend.configuration import DB_LOCATION
 from backend.vectorizer.faiss_index import index, save_index
 
 def reset_db():
-    # ---- Step 1: Clear Database Tables ----
-    conn = sqlite3.connect(DB_LOCATION)
-    cursor = conn.cursor()
-    cursor.execute("DELETE FROM files")
-    cursor.execute("DELETE FROM vector_mapping")
+    try:
+        # ---- Step 1: Clear Database Tables ----
+        conn = sqlite3.connect(DB_LOCATION)
+        cursor = conn.cursor()
 
-    cursor.execute("DELETE FROM sqlite_sequence WHERE name='files'")
-    cursor.execute("DELETE FROM sqlite_sequence WHERE name='vector_mapping'")
+        cursor.execute("DELETE FROM files")
+        cursor.execute("DELETE FROM vector_mapping")
 
-    conn.commit()
-    conn.close()
-    print("✅ Database tables cleared")
+        # Reset auto-increment counters
+        cursor.execute("DELETE FROM sqlite_sequence WHERE name='files'")
+        cursor.execute("DELETE FROM sqlite_sequence WHERE name='vector_mapping'")
 
-    # ---- Step 2: Reset FAISS Index ----
-    index.reset()
-    save_index(index)
-    print("✅ FAISS index reset")
+        conn.commit()
+        conn.close()
 
-    # ---- Step 3: Delete files only, keep folders ----
-    if os.path.exists(BASE_FOLDER_ADDRESS):
-        for folder in os.listdir(BASE_FOLDER_ADDRESS):
-            folder_path = os.path.join(BASE_FOLDER_ADDRESS, folder)
+        print("✅ Database cleared")
 
-            if os.path.isdir(folder_path):
-                # Delete files inside folder
-                for file in os.listdir(folder_path):
-                    file_path = os.path.join(folder_path, file)
+        # ---- Step 2: Reset FAISS Index ----
+        index.reset()
+        save_index(index)
 
-                    if os.path.isfile(file_path):
-                        os.remove(file_path)
-                        print(f"🗑️ Deleted: {file}")
+        print("✅ FAISS index reset")
 
-                print(f"✅ Cleared folder: {folder}")
+        return {"message": "Database reset successful"}
 
-    print("✅ Physical files deleted, folders preserved")
-
-    return {"message": "Database reset successful"}
+    except Exception as e:
+        print(f"❌ Reset error: {e}")
+        return {"error": str(e)}

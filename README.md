@@ -3,3 +3,5 @@ These are external tools your PDF OCR uses. They need to be installed separately
 Tesseract OCR  → https://github.com/UB-Mannheim/tesseract/wiki
 Poppler        → https://github.com/oschwartz10612/poppler-windows
 Or we can bundle them inside the .exe too — want me to show you how? 🚀
+
+when we are resetting the database we need to delete the faiss index.bin file.

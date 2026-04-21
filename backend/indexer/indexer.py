@@ -5,7 +5,6 @@ import sqlite3
 from backend.configuration import (
     DB_LOCATION,
     FILES_TABLE,
-    BASE_FOLDER_ADDRESS
 )
 # from backend.tempCodeRunnerFile import TABLE_NAME   
 
@@ -61,8 +60,8 @@ def scan_directory(root):
 
             # RELATIVE PATH
             try:
-                relative_path = os.path.relpath(full_path, BASE_FOLDER_ADDRESS)
-                relative_path = os.path.normpath(relative_path).replace("\\", "/")
+                relative_path = file_path
+                
             except Exception as e:
                 print("   ❌ Error in path conversion:", e)
                 continue
@@ -102,88 +101,24 @@ def scan_directory(root):
             except Exception as e:
                 print("   ❌ DB Insert Error:", e)
 
-    # print(f"\n📈 Total files processed: {file_count}")
-
-# 4. RUN SCAN
-
-# scan_directory(BASE_FOLDER_ADDRESS)
-
-
-# -------------------------------
-# 5. COMMIT
-# -------------------------------
-# print("\n💾 Committing changes to DB...")
-# conn.commit()
-# print("✅ Commit done")
-
-# 7. CLOSE DB
-# -------------------------------
-# conn.close()
-# print("\n🔒 DB connection closed")
-
-# 8. DB CONNECTION
-# -------------------------------
-# print("📦 Connecting to DB:", DB_LOCATION)
-
-# conn = sqlite3.connect(DB_LOCATION)
-# cursor = conn.cursor()
-
-# print("✅ Connected to DB")
-
-# -------------------------------
-# 9. VERIFY DATA
-# -------------------------------
-# print("\n🔍 Fetching data from DB...")
-
-# try:
-#     cursor.execute(f"SELECT COUNT(*) FROM {FILES_TABLE}")
-#     count = cursor.fetchone()[0]
-#     # print(f"📊 Total rows in DB: {count}")
-# except Exception as e:
-#     print("❌ Error fetching count:", e)
-
-
-# print("\n--- Sample Data ---")
-
-# try:
-#     cursor.execute(f"SELECT * FROM {FILES_TABLE} LIMIT 10")
-#     rows = cursor.fetchall()
-
-#     if not rows:
-#         print("⚠️ No data found in DB!")
-#     else:
-#         for row in rows:
-#             # print(row)
-
-# except Exception as e:
-#     print("❌ Error fetching rows:", e)
-
-
-# -------------------------------
-# 10. CLOSE DB
-# -------------------------------
-# conn.close()
-# print("\n🔒 DB connection closed")
 
 def process_file(file_path, update=False):
-    import sqlite3
-    import os
 
     conn = sqlite3.connect(DB_LOCATION)
     cursor = conn.cursor()
 
     # ---- METADATA EXTRACTION ----
     file_name = os.path.basename(file_path)
-    relative_path = os.path.relpath(file_path, BASE_FOLDER_ADDRESS)
+    path = file_path
     extension = os.path.splitext(file_path)[1].lower()
     size = os.path.getsize(file_path)
     modified_time = int(os.path.getmtime(file_path))
     created_time = int(os.path.getctime(file_path))
-    folder = os.path.normpath(os.path.dirname(relative_path)).replace("\\", "/")
+    folder = os.path.normpath(os.path.dirname(path)).replace("\\", "/")
 
     try:
         # ---- STEP 1: CHECK IF FILE EXISTS ----
-        cursor.execute("SELECT id FROM files WHERE path = ?", (relative_path,))
+        cursor.execute("SELECT id FROM files WHERE path = ?", (path,))
         result = cursor.fetchone()
 
         # ------------------ UPDATE CASE ------------------
@@ -210,7 +145,7 @@ def process_file(file_path, update=False):
         cursor.execute(f"""
             INSERT INTO {FILES_TABLE} (path, name, extension, size, modified_time, created_time, folder)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (relative_path, file_name, extension, size, modified_time, created_time, folder))
+        """, (path, file_name, extension, size, modified_time, created_time, folder))
 
         conn.commit()
 

@@ -22,7 +22,7 @@ sys.path.insert(0, BASE_DIR)
 sys.path.insert(0, BACKEND_DIR)
 
 from backend.task_queue.file_queue import file_queue, queued_files
-from backend.configuration import BASE_FOLDER_ADDRESS
+# from backend.configuration import BASE_FOLDER_ADDRESS
 
 # ---- Signal class for thread-safe UI updates ----
 class WorkerSignals(QObject):

@@ -12,7 +12,6 @@ from backend.configuration import (
 def get_connection():
     return sqlite3.connect(DB_LOCATION)
 
-
 # -------------------------------
 # Create Tables (Run Once)
 # -------------------------------
@@ -34,20 +33,6 @@ def initialize_database():
     );
     """)
 
-    # File Content Table (for extractor)
-    # cursor.execute(f"""
-    # CREATE TABLE IF NOT EXISTS {FILE_CONTENTS_TABLE} (
-    #     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    #     file_id INTEGER,
-    #     content TEXT,
-    #     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    #     FOREIGN KEY (file_id) REFERENCES {FILES_TABLE}(id)
-    # )
-    # """)
-
-    # -------------------------------
-    # Vector Mapping Table (FAISS ↔ Files)
-    # -------------------------------
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS vector_mapping (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -61,39 +46,6 @@ def initialize_database():
 
     conn.commit()
     conn.close()
-
-
-# -------------------------------
-# Insert Extracted Content
-# -------------------------------
-def insert_file_content(file_id, content):
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    # Check if content already exists
-    cursor.execute(f"""
-        SELECT id FROM {FILE_CONTENTS_TABLE} WHERE file_id = ?
-    """, (file_id,))
-    
-    result = cursor.fetchone()
-
-    if result:
-        # Update existing content
-        cursor.execute(f"""
-            UPDATE {FILE_CONTENTS_TABLE}
-            SET content = ?, last_updated = CURRENT_TIMESTAMP
-            WHERE file_id = ?
-        """, (content, file_id))
-    else:
-        # Insert new content
-        cursor.execute(f"""
-            INSERT INTO {FILE_CONTENTS_TABLE} (file_id, content)
-            VALUES (?, ?)
-        """, (file_id, content))
-
-    conn.commit()
-    conn.close()
-
 
 # -------------------------------
 # Get All Files (for extractor loop)

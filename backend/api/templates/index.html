@@ -214,6 +214,37 @@
                         <button class="btn-upload" type="submit">+ Add Files</button>
                     </form>
                 </div>
+                <!-- ADD FOLDER -->
+                <div class="side-card">
+                    <div class="side-title">📂 Add Folder</div>
+
+                    <form method="post" action="/add-folder">
+                        <input 
+                            type="text" 
+                            name="path" 
+                            placeholder="Enter folder path (e.g. C:\Users\singh\Desktop)" 
+                            style="
+                                width:100%;
+                                padding:10px;
+                                border-radius:8px;
+                                border:1px solid #334155;
+                                background:#0f172a;
+                                color:#fff;
+                                margin-bottom:10px;
+                                font-size:13px;
+                            "
+                            required
+                        >
+
+                        <button class="btn-upload" type="submit">
+                            + Add Folder
+                        </button>
+                    </form>
+
+                    <div style="margin-top:8px; font-size:11px; color:#94a3b8;">
+                        Scan + Watch folder for changes
+                    </div>
+                </div>
 
                 <!-- FILE TYPE BREAKDOWN -->
                 <div class="side-card">
@@ -259,7 +290,7 @@
                     data.notifications.forEach(msg => alert(msg));
                 }
             } catch (e) {}
-        }, 5000);
+        }, 10000);
     </script>
     <script>
         async function openFile(path) {

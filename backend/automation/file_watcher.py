@@ -15,20 +15,48 @@ from backend.task_queue.worker import worker
 threading.Thread(target=worker, daemon=True).start()
 
 recent_files = {}
+watched_paths = set()
 
 DEBOUNCE_TIME = 2  # seconds
-SUPPORTED_EXTENSIONS = (".pdf", ".docx", ".jpg", ".png", ".csv")
+SUPPORTED_EXTENSIONS = (".pdf", ".docx", ".jpg", ".png", ".csv", ".txt")
+
+
+# ✅ Ignore system / unwanted files
+def is_ignored_file(path):
+    ignored_keywords = [
+        ".db",
+        ".db-journal",
+        ".db-wal",
+        ".db-shm",
+        "__pycache__"
+    ]
+    return any(x in path for x in ignored_keywords)
+
+
+# ✅ Allow only supported files
+def is_valid_file(path):
+    ext = os.path.splitext(path)[1].lower()
+    return ext in SUPPORTED_EXTENSIONS
 
 
 class FileHandler(FileSystemEventHandler):
 
     # ------------------ CREATE ------------------
-    def on_created(file_path, event):
+    def on_created(self, event):
         if event.is_directory:
             return
 
-        file_path = event.src_path
+        file_path = os.path.normpath(event.src_path)
 
+        # ✅ Ignore unwanted files
+        if is_ignored_file(file_path):
+            return
+
+        # ✅ Allow only supported files
+        if not is_valid_file(file_path):
+            return
+
+        # ✅ Prevent duplicates
         if file_path in queued_files:
             return
 
@@ -38,29 +66,40 @@ class FileHandler(FileSystemEventHandler):
         file_queue.put(("create", file_path))
 
     # ------------------ MODIFY ------------------
-    def on_modified(file_path, event):
+    def on_modified(self, event):
         if event.is_directory:
             return
-        
-        file_path = event.src_path
 
+        file_path = os.path.normpath(event.src_path)
+
+        # ✅ Ignore unwanted files
+        if is_ignored_file(file_path):
+            return
+
+        # ✅ Allow only supported files
+        if not is_valid_file(file_path):
+            return
+
+        # ✅ Prevent duplicates
         if file_path in queued_files:
             return
 
         queued_files.add(file_path)
 
         print(f"✏️ Queued (modify): {file_path}")
-        file_queue.put(("modify", event.src_path))
+        file_queue.put(("modify", file_path))
 
     # ------------------ DELETE ------------------
-
     def on_deleted(self, event):
         if event.is_directory:
             return
 
-        file_path = event.src_path
+        file_path = os.path.normpath(event.src_path)
 
-        # 🔥 Always process delete (even if not in set)
+        # ✅ Ignore unwanted files
+        if is_ignored_file(file_path):
+            return
+
         print(f"🗑️ Queued (delete): {file_path}")
         file_queue.put(("delete", file_path))
 
@@ -84,6 +123,14 @@ class FileHandler(FileSystemEventHandler):
 
 
 def start_watching(folder_path):
+    global watched_paths
+
+    if folder_path in watched_paths:
+        print(f"⚠️ Already watching: {folder_path}")
+        return
+
+    watched_paths.add(folder_path)
+
     event_handler = FileHandler()
     observer = Observer()
     observer.schedule(event_handler, folder_path, recursive=True)
@@ -99,9 +146,5 @@ def start_watching(folder_path):
 
     observer.join()
 
-
 if __name__ == "__main__":
-    BASE_FOLDER_ADDRESS = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "files_collection")
-    )
-    start_watching(BASE_FOLDER_ADDRESS)
+    start_watching(r"C:\Users\singh\OneDrive\Desktop")
