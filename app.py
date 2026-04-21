@@ -3,6 +3,7 @@ import os
 import time
 import threading
 import subprocess
+
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout,
     QHBoxLayout, QPushButton, QLabel, QFileDialog,
@@ -10,7 +11,6 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtWebEngineWidgets import QWebEngineView
 from PyQt6.QtCore import QUrl, Qt, QTimer, pyqtSignal, QObject
-from PyQt6.QtGui import QPixmap, QIcon, QColor
 
 # ---- Base paths ----
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -20,7 +20,7 @@ API_DIR = os.path.join(BACKEND_DIR, "api")
 sys.path.insert(0, BASE_DIR)
 sys.path.insert(0, BACKEND_DIR)
 
-from backend.queue.file_queue import file_queue, queued_files
+from backend.task_queue.file_queue import file_queue, queued_files
 from backend.configuration import BASE_FOLDER_ADDRESS
 
 # ---- Signal class for thread-safe UI updates ----
@@ -37,12 +37,13 @@ def start_fastapi():
             "--port", "8000"
         ],
         cwd=BASE_DIR,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL
+        # ✅ Temporarily showing output to debug
+        # stdout=subprocess.DEVNULL,
+        # stderr=subprocess.DEVNULL
     )
 
 # ---- Wait for FastAPI to be ready ----
-def wait_for_server(timeout=30):
+def wait_for_server(timeout=60):       # ✅ increased to 60s
     import urllib.request
     start = time.time()
     while time.time() - start < timeout:
@@ -85,46 +86,6 @@ class MainWindow(QMainWindow):
 
         toolbar_layout.addStretch()
 
-        # ---- Add Files button ----
-        self.add_btn = QPushButton("📁  Add Files")
-        self.add_btn.setFixedHeight(32)
-        self.add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.add_btn.setStyleSheet("""
-            QPushButton {
-                background: #2563eb;
-                color: white;
-                border: none;
-                border-radius: 8px;
-                padding: 0 16px;
-                font-size: 13px;
-                font-weight: 600;
-            }
-            QPushButton:hover { background: #1d4ed8; }
-            QPushButton:pressed { background: #1e40af; }
-        """)
-        self.add_btn.clicked.connect(self.pick_files)
-        toolbar_layout.addWidget(self.add_btn)
-
-        # ---- Add Folder button ----
-        self.folder_btn = QPushButton("📂  Add Folder")
-        self.folder_btn.setFixedHeight(32)
-        self.folder_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.folder_btn.setStyleSheet("""
-            QPushButton {
-                background: #0f172a;
-                color: #94a3b8;
-                border: 1px solid #334155;
-                border-radius: 8px;
-                padding: 0 16px;
-                font-size: 13px;
-                font-weight: 600;
-            }
-            QPushButton:hover { background: #1e293b; color: #fff; }
-            QPushButton:pressed { background: #1e293b; }
-        """)
-        self.folder_btn.clicked.connect(self.pick_folder)
-        toolbar_layout.addWidget(self.folder_btn)
-
         # ---- Refresh button ----
         self.refresh_btn = QPushButton("🔄")
         self.refresh_btn.setFixedSize(32, 32)
@@ -144,9 +105,29 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(toolbar)
 
-        # ---- Browser ----
+        # ---- Browser with loading page ----
         self.browser = QWebEngineView()
-        self.browser.setUrl(QUrl("about:blank"))
+
+        self.browser.page().profile().downloadRequested.connect(self.handle_download)
+
+        # ✅ Show loading page while server starts
+        self.browser.setHtml("""
+            <html>
+            <body style="background:#0f172a; display:flex; align-items:center;
+                         justify-content:center; height:100vh; margin:0;
+                         font-family: -apple-system, sans-serif;">
+                <div style="text-align:center;">
+                    <div style="font-size:48px; margin-bottom:16px;">⚡</div>
+                    <div style="color:#fff; font-size:24px; font-weight:700; margin-bottom:8px;">
+                        DocS AI
+                    </div>
+                    <div style="color:#64748b; font-size:14px;">
+                        Starting server, please wait...
+                    </div>
+                </div>
+            </body>
+            </html>
+        """)
         layout.addWidget(self.browser)
 
         # ---- Status bar ----
@@ -168,12 +149,21 @@ class MainWindow(QMainWindow):
         # ---- Start FastAPI in background thread ----
         threading.Thread(target=self.start_server, daemon=True).start()
 
+    # ✅ Updated start_server
     def start_server(self):
         start_fastapi()
-        ready = wait_for_server()
+        print("⏳ Waiting for server...")
+        ready = wait_for_server(timeout=60)
         if ready:
+            print("✅ Server is ready!")
             self.server_ready.emit()
+        else:
+            print("❌ Server failed to start")
+            QTimer.singleShot(0, lambda: self.status_bar.showMessage(
+                "❌ Server failed to start — try restarting the app"
+            ))
 
+    # ✅ Updated on_server_ready
     def on_server_ready(self):
         self.browser.setUrl(QUrl("http://127.0.0.1:8000"))
         self.status_bar.showMessage("✅ Server running — http://127.0.0.1:8000")
@@ -181,80 +171,101 @@ class MainWindow(QMainWindow):
     def refresh_page(self):
         self.browser.reload()
 
+    def handle_download(self, download):
+        download.cancel()
+
+    def closeEvent(self, event):
+        """Called when user clicks X to close the window"""
+        import signal
+        print("🛑 Shutting down DocS AI...")
+        
+        # ✅ Kill FastAPI process on port 8000
+        try:
+            result = subprocess.run(
+                'netstat -ano | findstr :8000',
+                shell=True, capture_output=True, text=True
+            )
+            for line in result.stdout.strip().split('\n'):
+                if 'LISTENING' in line:
+                    pid = line.strip().split()[-1]
+                    subprocess.run(f'taskkill /PID {pid} /F',
+                                shell=True, capture_output=True)
+                    print(f"✅ Killed FastAPI (PID: {pid})")
+        except Exception as e:
+            print(f"⚠️ Shutdown error: {e}")
+        
+        event.accept()  # ✅ Allow window to close
+
     # ---- Pick individual files ----
-    def pick_files(self):
-        files, _ = QFileDialog.getOpenFileNames(
-            self,
-            "Select Files to Index",
-            os.path.expanduser("~"),
-            "Supported Files (*.txt *.pdf *.jpg *.jpeg *.png *.csv)"
-        )
+    # def pick_files(self):
+    #     files, _ = QFileDialog.getOpenFileNames(
+    #         self,
+    #         "Select Files to Index",
+    #         os.path.expanduser("~"),
+    #         "Supported Files (*.txt *.pdf *.jpg *.jpeg *.png *.csv)"
+    #     )
 
-        if not files:
-            return
+    #     if not files:
+    #         return
 
-        self.status_bar.showMessage(f"⏳ Indexing {len(files)} file(s)...")
-        threading.Thread(
-            target=self.index_files,
-            args=(files,),
-            daemon=True
-        ).start()
+    #     self.status_bar.showMessage(f"⏳ Indexing {len(files)} file(s)...")
+    #     threading.Thread(
+    #         target=self.index_files,
+    #         args=(files,),
+    #         daemon=True
+    #     ).start()
 
-    # ---- Pick entire folder ----
-    def pick_folder(self):
-        folder = QFileDialog.getExistingDirectory(
-            self,
-            "Select Folder to Index",
-            os.path.expanduser("~")
-        )
+    # # ---- Pick entire folder ----
+    # def pick_folder(self):
+    #     folder = QFileDialog.getExistingDirectory(
+    #         self,
+    #         "Select Folder to Index",
+    #         os.path.expanduser("~")
+    #     )
 
-        if not folder:
-            return
+    #     if not folder:
+    #         return
 
-        # Collect all supported files from folder
-        allowed_ext = {".txt", ".pdf", ".jpg", ".jpeg", ".png", ".csv"}
-        files = []
-        for root, dirs, filenames in os.walk(folder):
-            for filename in filenames:
-                ext = os.path.splitext(filename)[1].lower()
-                if ext in allowed_ext:
-                    files.append(os.path.join(root, filename))
+    #     allowed_ext = {".txt", ".pdf", ".jpg", ".jpeg", ".png", ".csv"}
+    #     files = []
+    #     for root, dirs, filenames in os.walk(folder):
+    #         for filename in filenames:
+    #             ext = os.path.splitext(filename)[1].lower()
+    #             if ext in allowed_ext:
+    #                 files.append(os.path.join(root, filename))
 
-        if not files:
-            self.status_bar.showMessage("⚠️ No supported files found in folder")
-            return
+    #     if not files:
+    #         self.status_bar.showMessage("⚠️ No supported files found in folder")
+    #         return
 
-        self.status_bar.showMessage(f"⏳ Indexing {len(files)} file(s) from folder...")
-        threading.Thread(
-            target=self.index_files,
-            args=(files,),
-            daemon=True
-        ).start()
+    #     self.status_bar.showMessage(f"⏳ Indexing {len(files)} file(s) from folder...")
+    #     threading.Thread(
+    #         target=self.index_files,
+    #         args=(files,),
+    #         daemon=True
+    #     ).start()
 
-    # ---- Index files via queue ----
-    def index_files(self, file_paths):
-        added = 0
-        skipped = 0
+    # # ---- Index files via queue ----
+    # def index_files(self, file_paths):
+    #     added = 0
+    #     skipped = 0
 
-        for path in file_paths:
-            if path in queued_files:
-                skipped += 1
-                continue
+    #     for path in file_paths:
+    #         if path in queued_files:
+    #             skipped += 1
+    #             continue
 
-            queued_files.add(path)
-            file_queue.put(("create", path))
-            added += 1
+    #         queued_files.add(path)
+    #         file_queue.put(("create", path))
+    #         added += 1
 
-        # ---- Update status and refresh page ----
-        msg = f"✅ Queued {added} file(s) for indexing"
-        if skipped:
-            msg += f" ({skipped} skipped — already queued)"
+    #     msg = f"✅ Queued {added} file(s) for indexing"
+    #     if skipped:
+    #         msg += f" ({skipped} skipped — already queued)"
 
-        # Use timer to update UI from main thread
-        QTimer.singleShot(500, lambda: self.status_bar.showMessage(msg))
+    #     QTimer.singleShot(500, lambda: self.status_bar.showMessage(msg))
+    #     QTimer.singleShot(3000, self.refresh_page)
 
-        # Refresh after indexing completes (give worker time)
-        QTimer.singleShot(3000, self.refresh_page)
 
 # ---- Splash Screen ----
 def show_splash():
@@ -288,6 +299,7 @@ def show_splash():
 
     return splash_widget
 
+
 # ---- Entry point ----
 if __name__ == "__main__":
     app = QApplication(sys.argv)
@@ -299,7 +311,6 @@ if __name__ == "__main__":
     splash.show()
     app.processEvents()
 
-    # Short delay for splash
     time.sleep(1)
 
     # Show main window

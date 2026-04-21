@@ -18,7 +18,7 @@ from contextlib import asynccontextmanager
 from backend.automation.file_watcher import start_watching
 from backend.resetter.reset import reset_db
 from backend.vectorizer.faiss_index import index, save_index
-from backend.queue.notifications import notification_queue
+from backend.task_queue.notifications import notification_queue
 from backend.resetter.reset import reset_db
 from urllib.parse import quote,unquote
 
@@ -142,13 +142,21 @@ def search_ui_get(request: Request):
 
 @app.get("/open")
 def open_file(path: str):
-    full_path = os.path.join(BASE_FOLDER_ADDRESS, path)
+    folders = ["Text Files", "PDF Files", "Image Files", "CSV Files"]
+    for folder in folders:
+        if path.startswith(folder) and not path.startswith(folder + "\\"):
+            path = folder + "\\" + path[len(folder):]
+            break
+
+    if not os.path.isabs(path):
+        full_path = os.path.normpath(os.path.join(BASE_FOLDER_ADDRESS, path))
+    else:
+        full_path = os.path.normpath(path)
 
     if not os.path.exists(full_path):
-        return {"error": "File not found"}
+        return {"error": f"File not found: {full_path}"}
 
     return FileResponse(full_path)
-
 @app.post("/upload")
 def upload_files(files: List[UploadFile] = File(...)):
     allowed_ext = {".txt", ".pdf", ".jpg", ".jpeg", ".png", ".csv"}
@@ -207,3 +215,33 @@ def get_notifications():
     messages = list(notification_queue)
     notification_queue.clear()  
     return {"notifications": messages}
+
+@app.get("/open-native")
+def open_native(path: str):
+    try:
+        import subprocess
+
+        print(f"📥 Raw path received: '{path}'")
+
+        # ✅ Fix missing backslash between folder and filename
+        folders = ["Text Files", "PDF Files", "Image Files", "CSV Files"]
+        for folder in folders:
+            if path.startswith(folder) and not path.startswith(folder + "\\"):
+                path = folder + "\\" + path[len(folder):]
+                break
+
+        if not os.path.isabs(path):
+            full_path = os.path.normpath(os.path.join(BASE_FOLDER_ADDRESS, path))
+        else:
+            full_path = os.path.normpath(path)
+
+        print(f"🔍 Trying to open: {full_path}")
+
+        if os.path.exists(full_path):
+            subprocess.Popen(f'start "" "{full_path}"', shell=True)
+            return {"status": "opened"}
+
+        return {"error": f"File not found: {full_path}"}
+
+    except Exception as e:
+        return {"error": str(e)}

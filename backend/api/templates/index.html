@@ -8,8 +8,11 @@
 </head>
 <body>
     {% if msg %}
-    <div id="toast" class="toast {% if '✅' in msg %}toast-success{% elif '❌' in msg %}toast-error{% else %}toast-warning{% endif %}">
-        {{ msg }}
+    <div id="toast" class="toast
+        {% if msg.startswith('success') %}toast-success
+        {% elif msg.startswith('error') %}toast-error
+        {% else %}toast-warning{% endif %}">
+        {{ msg.split(':', 1)[1] if ':' in msg else msg }}
     </div>
     <script>
         setTimeout(() => {
@@ -32,10 +35,49 @@
             <a href="/files" class="nav-item">📁 My Files</a>
         </nav>
         <div class="sidebar-bottom">
-            <form method="post" action="/reset"
-                  onsubmit="return confirm('Are you sure you want to reset everything?')">
-                <button class="btn-reset-nav" type="submit">🗑️ Reset Database</button>
-            </form>
+            <button class="btn-reset-nav" onclick="showResetModal()">🗑️ Reset Database</button>
+
+            <!-- Custom Reset Modal -->
+            <div id="reset-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center;">
+                <div style="background:#1e293b; border-radius:16px; padding:32px; width:380px; border:1px solid #334155; text-align:center;">
+                    <div style="font-size:40px; margin-bottom:16px;">⚠️</div>
+                    <div style="color:#fff; font-size:18px; font-weight:700; margin-bottom:8px;">Reset Database?</div>
+                    <div style="color:#94a3b8; font-size:13px; margin-bottom:24px; line-height:1.6;">
+                        This will permanently delete all indexed files, vectors and physical files from the database. This action cannot be undone.
+                    </div>
+                    <div style="display:flex; gap:12px; justify-content:center;">
+                        <button onclick="hideResetModal()"
+                            style="padding:10px 24px; border-radius:10px; border:1px solid #334155;
+                                background:transparent; color:#94a3b8; font-size:14px;
+                                font-weight:600; cursor:pointer;">
+                            Cancel
+                        </button>
+                        <form method="post" action="/reset" style="margin:0;">
+                            <button type="submit"
+                                style="padding:10px 24px; border-radius:10px; border:none;
+                                    background:#dc2626; color:#fff; font-size:14px;
+                                    font-weight:600; cursor:pointer;">
+                                Yes, Reset
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+
+            <script>
+                function showResetModal() {
+                    const modal = document.getElementById('reset-modal');
+                    modal.style.display = 'flex';
+                }
+                function hideResetModal() {
+                    const modal = document.getElementById('reset-modal');
+                    modal.style.display = 'none';
+                }
+                // Close on outside click
+                document.getElementById('reset-modal').addEventListener('click', function(e) {
+                    if (e.target === this) hideResetModal();
+                });
+            </script>
         </div>
     </aside>
 
@@ -120,9 +162,9 @@
                             </div>
                             <div class="result-folder">
                                 📂 {{ r.folder }} &nbsp;·&nbsp;
-                                <a class="open-link"
-                                   href="/open?path={{ r.file_path }}"
-                                   target="_blank">Open File ↗</a>
+                                <a href="javascript:void(0)" 
+                                    onclick="openFile('{{ r.file_path }}')" 
+                                    class="open-link">Open File ↗</a>
                             </div>
                             <div class="result-chunk">{{ r.chunk | safe }}...</div>
                         </div>
@@ -219,6 +261,18 @@
             } catch (e) {}
         }, 5000);
     </script>
-
+    <script>
+        async function openFile(path) {
+            try {
+                const response = await fetch(`/open-native?path=${encodeURIComponent(path)}`);
+                const data = await response.json();
+                if (data.error) {
+                    alert('❌ Could not open file: ' + data.error);
+                }
+            } catch (err) {
+                alert('❌ Failed to open file');
+            }
+        }
+    </script>
 </body>
 </html>

@@ -8,8 +8,8 @@ from watchdog.events import FileSystemEventHandler
 from backend.indexer.indexer import process_file
 from backend.extractor.extractor import extract_file
 from backend.vectorizer.vectorizer import run_vectorizer
-from backend.queue.file_queue import file_queue, queued_files
-from backend.queue.worker import worker
+from backend.task_queue.file_queue import file_queue, queued_files
+from backend.task_queue.worker import worker
 
 # Start worker thread
 threading.Thread(target=worker, daemon=True).start()
