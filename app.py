@@ -5,6 +5,15 @@ import threading
 import subprocess
 from PyQt6.QtGui import QIcon, QPixmap
 
+os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-gpu --disable-gpu-compositing"
+os.environ["QT_QUICK_BACKEND"] = "software"
+os.environ["QT_OPENGL"] = "software"
+os.environ["QT_LOGGING_RULES"] = "*.debug=false;qt.webenginecontext.info=false"
+
+os.environ["HF_HUB_DISABLE_SYMLINKS_WARNING"] = "1"
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+os.environ["HF_HUB_VERBOSITY"] = "error"
+
 from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout,
     QHBoxLayout, QPushButton, QLabel, QFileDialog,
