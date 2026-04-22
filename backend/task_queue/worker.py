@@ -6,6 +6,7 @@ from backend.vectorizer.vectorizer import run_vectorizer
 from backend.deleter.deleter import delete_file_records
 from backend.task_queue.file_queue import file_queue, queued_files
 from backend.task_queue.notifications import notify_user
+from backend.task_queue.progress import progress
 
 def worker():
     print("🚀 Worker started...\n")
@@ -13,10 +14,13 @@ def worker():
     while True:
         try:
             task_type, file_path = file_queue.get()
+            progress["current_file"] = file_path
 
             print(f"\n⚙️ Processing: {task_type} → {file_path}")
 
             if task_type in ("create", "modify"):
+                progress["total"] += 1
+
                 file_id = process_file(file_path)
 
                 content = extract_file(file_path)
@@ -36,7 +40,8 @@ def worker():
                     continue
 
                 run_vectorizer(file_id, content)
-
+                progress["processed"] += 1
+        
             elif task_type == "delete":
                 delete_file_records(file_path)
 
@@ -44,6 +49,18 @@ def worker():
             print(f"❌ Worker Error: {e}")
             time.sleep(1)
         finally:
-            queued_files.discard(file_path) 
-            file_queue.task_done()
+            queued_files.discard(file_path)
+    
+            try:
+                file_queue.task_done()
+            except ValueError:
+                pass  
+
+            if file_queue.unfinished_tasks == 0:
+                progress["active"] = False
+                progress["processed"] = 0
+                progress["total"] = 0
+                progress["current_file"] = ""
+
             time.sleep(0.3)
+

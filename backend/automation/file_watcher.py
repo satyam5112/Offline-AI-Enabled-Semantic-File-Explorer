@@ -16,6 +16,7 @@ threading.Thread(target=worker, daemon=True).start()
 
 recent_files = {}
 watched_paths = set()
+active_watchers = {}
 
 DEBOUNCE_TIME = 2  # seconds
 SUPPORTED_EXTENSIONS = (".pdf", ".docx", ".jpg", ".png", ".csv", ".txt")
@@ -123,28 +124,39 @@ class FileHandler(FileSystemEventHandler):
 
 
 def start_watching(folder_path):
-    global watched_paths
+    global watched_paths, active_watchers
 
     if folder_path in watched_paths:
         print(f"⚠️ Already watching: {folder_path}")
         return
 
-    watched_paths.add(folder_path)
-
     event_handler = FileHandler()
     observer = Observer()
     observer.schedule(event_handler, folder_path, recursive=True)
 
+    watched_paths.add(folder_path)
+    active_watchers[folder_path] = observer  # ✅ store reference
+
     print(f"👀 Watching folder: {folder_path}")
+
     observer.start()
 
-    try:
-        while True:
-            time.sleep(2)
-    except KeyboardInterrupt:
-        observer.stop()
+def stop_watching(folder_path):
+    global watched_paths, active_watchers
 
+    observer = active_watchers.get(folder_path)
+
+    if not observer:
+        print(f"⚠️ Not watching: {folder_path}")
+        return
+
+    observer.stop()
     observer.join()
 
-if __name__ == "__main__":
-    start_watching(r"C:\Users\singh\OneDrive\Desktop")
+    watched_paths.discard(folder_path)
+    del active_watchers[folder_path]
+
+    print(f"🛑 Stopped watching: {folder_path}")
+
+# if __name__ == "__main__":
+#     start_watching(r"C:\Users\singh\OneDrive\Desktop")

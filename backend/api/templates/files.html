@@ -193,6 +193,23 @@
 
         </div>
     </main>
+    <!-- PROGRESS BAR -->
+    <div id="progress-modal" class="progress-modal">
+        <div class="progress-header">
+            <div class="progress-title">
+                <div class="progress-spinner"></div>
+                Indexing Files
+            </div>
+            <span id="progress-percent">0%</span>
+        </div>
+        <div class="progress-file" id="current">Preparing...</div>
+        <div class="progress-track">
+            <div class="progress-fill" id="bar-fill"></div>
+        </div>
+        <div class="progress-footer">
+            <span id="processed">0</span> of <span id="total">0</span> files processed
+        </div>
+    </div>
     <script>
         async function openFile(path) {
             try {
@@ -205,6 +222,41 @@
                 alert('❌ Failed to open file');
             }
         }
+    </script>
+
+    <script>
+    setInterval(async () => {
+        try {
+            const res = await fetch("/progress");
+            const data = await res.json();
+
+            const modal = document.getElementById("progress-modal");
+
+            if (data.active) {
+                modal.style.display = "block";
+            } else {
+                modal.style.display = "none";
+            }
+
+            document.getElementById("total").innerText = data.total;
+            document.getElementById("processed").innerText = data.processed;
+
+            // ✅ Show only filename not full path
+            const fullPath = data.current_file || "";
+            const fileName = fullPath.split("\\").pop().split("/").pop();
+            document.getElementById("current").innerText = fileName || "Preparing...";
+
+            const percent = data.total > 0
+                ? Math.round((data.processed / data.total) * 100)
+                : 0;
+
+            document.getElementById("bar-fill").style.width = percent + "%";
+            document.getElementById("progress-percent").innerText = percent + "%";
+
+        } catch (e) {
+            // silent fail
+        }
+    }, 1000);
     </script>
 </body>
 </html>

@@ -9,7 +9,7 @@ import shutil
 import sqlite3
 import tempfile
 
-
+from backend.task_queue.progress import progress
 from backend.automation.file_watcher import watched_paths
 from backend.scanner.folder_scanner import scan_folder
 from backend.automation.file_watcher import start_watching
@@ -86,10 +86,29 @@ def status():
 
 @app.get("/")
 def home(request: Request, msg: str = ""):
-    msg = unquote(msg)  # ✅ decode the URL encoded message
+    msg = unquote(msg)
+
+    try:
+        conn = sqlite3.connect(DB_LOCATION)
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT path FROM watched_folders")
+        folders = [row[0] for row in cursor.fetchall()]
+
+        conn.close()
+
+    except Exception as e:
+        print("❌ Error loading folders:", e)
+        folders = []
+
     return templates.TemplateResponse(
-        request=request, name="index.html",
-        context={"stats": status(), "msg": msg}
+        request=request,
+        name="index.html",
+        context={
+            "stats": status(),
+            "msg": msg,          
+            "folders": folders   
+        }
     )
 
 @app.get("/files")
@@ -249,6 +268,22 @@ def open_native(path: str):
 @app.post("/add-folder")
 def add_folder(path: str = Form(...)):
     try:
+
+        if not os.path.exists(path):
+            return RedirectResponse(
+                url="/?msg=error:Invalid folder path",
+                status_code=303
+            )
+        conn = sqlite3.connect(DB_LOCATION)
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "INSERT OR IGNORE INTO watched_folders (path) VALUES (?)",
+            (path,)
+        )
+        conn.commit()
+        conn.close()
+
         if path in watched_paths:
             return RedirectResponse(url="/?msg=warning:Folder already being watched",status_code=303)
         if not os.path.exists(path):
@@ -263,4 +298,42 @@ def add_folder(path: str = Form(...)):
         return RedirectResponse(url="/?msg=success:Folder added successfully", status_code=303)
 
     except Exception as e:
-        return {"error": str(e)}
+        return RedirectResponse(url=f"/?msg=error:{str(e)}",status_code=303)
+
+@app.post("/remove-folder")
+def remove_folder(path: str = Form(...)):
+    try:
+        from backend.automation.file_watcher import stop_watching
+
+        stopped = stop_watching(path)
+
+        import sqlite3
+        from backend.configuration import DB_LOCATION
+
+        conn = sqlite3.connect(DB_LOCATION)
+        cursor = conn.cursor()
+
+        cursor.execute("DELETE FROM watched_folders WHERE path = ?", (path,))
+        conn.commit()
+        conn.close()
+
+        if stopped:
+            return RedirectResponse(
+                url="/?msg=success:Folder removed",
+                status_code=303
+            )
+        else:
+            return RedirectResponse(
+                url="/?msg=warning:Watcher not active but removed from DB",
+                status_code=303
+            )
+
+    except Exception as e:
+        return RedirectResponse(
+            url=f"/?msg=error:{str(e)}",
+            status_code=303
+        )
+
+@app.get("/progress")
+def get_progress():
+    return progress
