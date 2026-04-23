@@ -49,15 +49,15 @@ class FileHandler(FileSystemEventHandler):
 
         file_path = os.path.normpath(event.src_path)
 
-        # ✅ Ignore unwanted files
+        if not os.path.isfile(file_path):
+            return
+
         if is_ignored_file(file_path):
             return
 
-        # ✅ Allow only supported files
         if not is_valid_file(file_path):
             return
 
-        # ✅ Prevent duplicates
         if file_path in queued_files:
             return
 
@@ -73,15 +73,12 @@ class FileHandler(FileSystemEventHandler):
 
         file_path = os.path.normpath(event.src_path)
 
-        # ✅ Ignore unwanted files
         if is_ignored_file(file_path):
             return
 
-        # ✅ Allow only supported files
         if not is_valid_file(file_path):
             return
 
-        # ✅ Prevent duplicates
         if file_path in queued_files:
             return
 
@@ -97,7 +94,6 @@ class FileHandler(FileSystemEventHandler):
 
         file_path = os.path.normpath(event.src_path)
 
-        # ✅ Ignore unwanted files
         if is_ignored_file(file_path):
             return
 
@@ -157,6 +153,19 @@ def stop_watching(folder_path):
     del active_watchers[folder_path]
 
     print(f"🛑 Stopped watching: {folder_path}")
+
+def stop_all_watchers():
+    global active_watchers
+    for observer in active_watchers.values():
+        try:
+            observer.stop()
+            observer.join()
+            print(f"🛑 Stopped watcher")
+        except Exception as e:
+            print(f"⚠️ Error stopping watcher: {e}")
+    active_watchers.clear()
+    watched_paths.clear()
+    print("✅ All watchers stopped and cleared")
 
 # if __name__ == "__main__":
 #     start_watching(r"C:\Users\singh\OneDrive\Desktop")

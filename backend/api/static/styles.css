@@ -100,6 +100,18 @@ a.nav-item { text-decoration: none; }
 .file-row:hover .file-open-btn { opacity: 1; }
 .empty-folder { padding: 32px 18px; text-align: center; color: #94a3b8; font-size: 13px; }
 
+/* WATCHED FOLDERS */
+.watched-list { display: flex; flex-direction: column; gap: 6px; }
+.watched-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 8px 12px; }
+.watched-info { display: flex; align-items: center; gap: 8px; margin-bottom: 3px; }
+.watched-dot { width: 7px; height: 7px; border-radius: 50%; background: #22c55e; flex-shrink: 0; animation: pulse 2s infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+.watched-path { font-size: 13px; font-weight: 600; color: #0f172a; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.watched-full-path { font-size: 10px; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 6px; }
+.watched-remove { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 12px; padding: 2px 6px; border-radius: 6px; transition: all 0.15s; float: right; margin-top: -28px; }
+.watched-remove:hover { background: #fee2e2; color: #ef4444; }
+.watched-empty { text-align: center; color: #94a3b8; font-size: 12px; padding: 16px 0; }
+
 /* PROGRESS BAR */
 .progress-modal {
     position: fixed;

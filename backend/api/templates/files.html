@@ -223,40 +223,151 @@
             }
         }
     </script>
-
+    <!-- PROGRESS TRACKER -->
     <script>
-    setInterval(async () => {
-        try {
-            const res = await fetch("/progress");
-            const data = await res.json();
+        setInterval(async () => {
+            try {
+                const res = await fetch("/progress");
+                const data = await res.json();
 
-            const modal = document.getElementById("progress-modal");
+                const modal = document.getElementById("progress-modal");
 
-            if (data.active) {
-                modal.style.display = "block";
+                if (data.active) {
+                    modal.style.display = "block";
+                } else {
+                    modal.style.display = "none";
+                }
+
+                document.getElementById("total").innerText = data.total;
+                document.getElementById("processed").innerText = data.processed;
+
+                const fileName = (data.current_file || "").split("\\").pop().split("/").pop();
+                document.getElementById("current").innerText = fileName || "Preparing...";
+
+                const percent = data.total > 0
+                    ? Math.round((data.processed / data.total) * 100)
+                    : 0;
+
+                document.getElementById("bar-fill").style.width = percent + "%";
+                document.getElementById("progress-percent").innerText = percent + "%";
+
+                // ✅ Show report when done
+                if (data.report_ready) {
+                    showReport(data);
+                }
+
+            } catch (e) {}
+        }, 1000);
+
+        // ---- Show Report Modal ----
+        function showReport(data) {
+            const modal = document.getElementById("report-modal");
+            modal.style.display = "flex";
+
+            // Summary
+            document.getElementById("report-summary").innerText =
+                `${data.total} files processed`;
+
+            // Counts
+            document.getElementById("success-count").innerText =
+                data.success_files.length;
+            document.getElementById("failed-count").innerText =
+                data.failed_files.length;
+
+            // Success list
+            const successList = document.getElementById("success-list");
+            successList.innerHTML = "";
+            if (data.success_files.length > 0) {
+                data.success_files.forEach(f => {
+                    successList.innerHTML += `
+                        <div style="display:flex; align-items:center; gap:8px; padding:7px 10px;
+                                    background:#f0fdf4; border-radius:8px; font-size:12px; color:#166534;">
+                            <span>✅</span>
+                            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${f}</span>
+                        </div>`;
+                });
             } else {
-                modal.style.display = "none";
+                document.getElementById("success-section").style.display = "none";
             }
 
-            document.getElementById("total").innerText = data.total;
-            document.getElementById("processed").innerText = data.processed;
-
-            // ✅ Show only filename not full path
-            const fullPath = data.current_file || "";
-            const fileName = fullPath.split("\\").pop().split("/").pop();
-            document.getElementById("current").innerText = fileName || "Preparing...";
-
-            const percent = data.total > 0
-                ? Math.round((data.processed / data.total) * 100)
-                : 0;
-
-            document.getElementById("bar-fill").style.width = percent + "%";
-            document.getElementById("progress-percent").innerText = percent + "%";
-
-        } catch (e) {
-            // silent fail
+            // Failed list
+            const failedList = document.getElementById("failed-list");
+            failedList.innerHTML = "";
+            if (data.failed_files.length > 0) {
+                document.getElementById("failed-section").style.display = "block";
+                data.failed_files.forEach(f => {
+                    failedList.innerHTML += `
+                        <div style="display:flex; align-items:center; gap:8px; padding:7px 10px;
+                                    background:#fef2f2; border-radius:8px; font-size:12px; color:#dc2626;">
+                            <span>❌</span>
+                            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${f}</span>
+                        </div>`;
+                });
+            }
         }
-    }, 1000);
+
+        // ---- Close Report ----
+        async function closeReport() {
+            document.getElementById("report-modal").style.display = "none";
+
+            // ✅ Clear report data on server
+            await fetch("/clear-report", { method: "POST" });
+
+            // ✅ Refresh page to update stats
+            window.location.reload();
+        }
     </script>
+    <!-- PROCESSING REPORT MODAL -->
+    <div id="report-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:99999; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:16px; width:520px; max-height:80vh; display:flex; flex-direction:column; overflow:hidden; border:1px solid #e2e8f0;">
+            
+            <!-- Header -->
+            <div style="padding:20px 24px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                    <div style="font-size:16px; font-weight:700; color:#0f172a;">📊 Indexing Report</div>
+                    <div style="font-size:12px; color:#64748b; margin-top:2px;" id="report-summary"></div>
+                </div>
+                <button onclick="closeReport()" style="background:#f1f5f9; border:none; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:13px; color:#374151; font-weight:600;">
+                    Close ✕
+                </button>
+            </div>
+
+            <!-- Stats Row -->
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:16px 24px; border-bottom:1px solid #f1f5f9;">
+                <div style="background:#f0fdf4; border-radius:10px; padding:12px 16px; border:1px solid #bbf7d0;">
+                    <div style="font-size:11px; color:#166534; font-weight:600; margin-bottom:4px;">✅ SUCCESSFULLY INDEXED</div>
+                    <div style="font-size:28px; font-weight:700; color:#15803d;" id="success-count">0</div>
+                </div>
+                <div style="background:#fef2f2; border-radius:10px; padding:12px 16px; border:1px solid #fecaca;">
+                    <div style="font-size:11px; color:#991b1b; font-weight:600; margin-bottom:4px;">❌ FAILED</div>
+                    <div style="font-size:28px; font-weight:700; color:#dc2626;" id="failed-count">0</div>
+                </div>
+            </div>
+
+            <!-- File Lists -->
+            <div style="overflow-y:auto; flex:1; padding:16px 24px;">
+
+                <!-- Success List -->
+                <div id="success-section">
+                    <div style="font-size:12px; font-weight:600; color:#166534; margin-bottom:8px;">✅ Indexed Successfully</div>
+                    <div id="success-list" style="display:flex; flex-direction:column; gap:4px; margin-bottom:16px;"></div>
+                </div>
+
+                <!-- Failed List -->
+                <div id="failed-section" style="display:none;">
+                    <div style="font-size:12px; font-weight:600; color:#dc2626; margin-bottom:8px;">❌ Failed Files</div>
+                    <div id="failed-list" style="display:flex; flex-direction:column; gap:4px;"></div>
+                </div>
+
+            </div>
+
+            <!-- Footer -->
+            <div style="padding:16px 24px; border-top:1px solid #f1f5f9; display:flex; justify-content:flex-end;">
+                <button onclick="closeReport()" style="background:#2563eb; color:#fff; border:none; border-radius:10px; padding:10px 24px; font-size:14px; font-weight:600; cursor:pointer;">
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
