@@ -23,6 +23,7 @@ from backend.resetter.reset import reset_db as do_reset
 from backend.vectorizer.faiss_index import index, save_index
 from backend.task_queue.notifications import notification_queue
 from urllib.parse import quote, unquote
+import socket
 
 
 # ---- Lifespan ----
@@ -454,6 +455,272 @@ def clear_report():
     progress["processed"] = 0
     progress["current_file"] = ""
     return {"status": "cleared"}
+
+# MOBILE SHARE — wireless file transfer from phone to laptop
+SHARED_FOLDER = os.path.join(os.path.expanduser("~"), "Desktop", "shared")
+os.makedirs(SHARED_FOLDER, exist_ok=True)
+
+# Tracks files received from phone, waiting for user to confirm indexing
+_mobile_pending = {"active": False, "files": [], "folder": SHARED_FOLDER}
+
+def _get_local_ip():
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
+@app.get("/mobile/qr-info")
+def mobile_qr_info():
+    """Returns LAN IP and phone URL — used by the QR modal."""
+    ip = _get_local_ip()
+    return {
+        "ip": ip,
+        "url": f"http://{ip}:8000/mobile",
+        "folder": SHARED_FOLDER
+    }
+
+
+@app.get("/mobile", response_class=None)
+def mobile_page():
+    """The page your phone opens in its browser to send files."""
+    from fastapi.responses import HTMLResponse
+    ip = _get_local_ip()
+    html = f"""<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0"/>
+<title>Send to PC — DocS AI</title>
+<style>
+* {{ box-sizing: border-box; margin: 0; padding: 0; }}
+body {{
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f0f2f5;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 20px 60px;
+}}
+header {{ width: 100%; max-width: 480px; text-align: center; margin-bottom: 32px; }}
+.logo {{ font-size: 24px; font-weight: 800; color: #0f172a; margin-bottom: 4px; }}
+.sub {{ font-size: 13px; color: #64748b; }}
+.card {{
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 24px;
+    width: 100%;
+    max-width: 480px;
+    margin-bottom: 16px;
+}}
+.drop-zone {{
+    border: 2px dashed #cbd5e1;
+    border-radius: 12px;
+    padding: 40px 20px;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    transition: all 0.15s;
+    background: #fafafa;
+    margin-bottom: 12px;
+}}
+.drop-zone:active {{ border-color: #2563eb; background: #eff6ff; }}
+.drop-icon {{ font-size: 40px; margin-bottom: 10px; display: block; }}
+.drop-label {{ font-weight: 600; font-size: 15px; color: #0f172a; margin-bottom: 4px; }}
+.drop-hint {{ font-size: 12px; color: #94a3b8; }}
+#file-input {{
+    position: absolute; inset: 0; opacity: 0;
+    cursor: pointer; width: 100%; height: 100%;
+}}
+.file-list {{ display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }}
+.file-item {{
+    display: flex; align-items: center; gap: 10px;
+    background: #f8fafc; border: 1px solid #e2e8f0;
+    border-radius: 10px; padding: 10px 14px;
+    font-size: 13px; position: relative; overflow: hidden;
+}}
+.file-prog {{
+    position: absolute; left: 0; top: 0; bottom: 0;
+    background: #eff6ff; width: 0%; transition: width 0.3s;
+    z-index: 0;
+}}
+.file-icon {{ font-size: 18px; z-index: 1; }}
+.file-name {{ flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; z-index: 1; color: #374151; }}
+.file-size {{ font-size: 11px; color: #94a3b8; z-index: 1; }}
+.file-stat {{ font-size: 14px; z-index: 1; }}
+.btn {{
+    display: block; width: 100%; max-width: 480px;
+    padding: 14px; border: none; border-radius: 12px;
+    font-weight: 700; font-size: 15px; cursor: pointer;
+    transition: background 0.15s;
+}}
+.btn-primary {{ background: #2563eb; color: #fff; }}
+.btn-primary:hover {{ background: #1d4ed8; }}
+.btn-primary:disabled {{ opacity: 0.5; cursor: not-allowed; }}
+.status-card {{
+    display: none; background: #fff;
+    border: 1px solid #e2e8f0; border-radius: 16px;
+    padding: 32px 24px; width: 100%; max-width: 480px;
+    text-align: center; margin-bottom: 16px;
+}}
+.status-icon {{ font-size: 48px; margin-bottom: 12px; }}
+.status-title {{ font-size: 20px; font-weight: 700; color: #0f172a; margin-bottom: 6px; }}
+.status-msg {{ font-size: 13px; color: #64748b; }}
+.allowed {{ font-size: 11px; color: #94a3b8; text-align: center; margin-top: 8px; }}
+.spinner {{
+    display: inline-block; width: 18px; height: 18px;
+    border: 2px solid rgba(255,255,255,0.4);
+    border-top-color: #fff; border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+}}
+@keyframes spin {{ to {{ transform: rotate(360deg); }} }}
+</style>
+</head>
+<body>
+<header>
+    <div class="logo">⚡ DocS AI</div>
+    <div class="sub">Send files to your PC wirelessly</div>
+</header>
+
+<div class="card" id="pick-card">
+    <div class="drop-zone" id="drop-zone">
+        <input type="file" id="file-input" multiple
+            accept=".pdf,.txt,.jpg,.jpeg,.png,.csv,.docx"/>
+        <span class="drop-icon">📁</span>
+        <div class="drop-label">Tap to choose files</div>
+        <div class="drop-hint">PDF · TXT · JPG · PNG · CSV</div>
+    </div>
+    <div class="file-list" id="file-list"></div>
+    <p class="allowed">Supported: .pdf .txt .jpg .png .csv .docx</p>
+</div>
+
+<button class="btn btn-primary" id="send-btn" disabled onclick="uploadFiles()">
+    Send to PC
+</button>
+
+<div class="status-card" id="status-card">
+    <div class="status-icon" id="s-icon">✅</div>
+    <div class="status-title" id="s-title">Done!</div>
+    <div class="status-msg" id="s-msg">A prompt will appear on your PC to index the files.</div>
+</div>
+
+<script>
+const input = document.getElementById('file-input');
+const fileList = document.getElementById('file-list');
+const sendBtn = document.getElementById('send-btn');
+const ICONS = {{pdf:'📄',txt:'📝',jpg:'🖼️',jpeg:'🖼️',png:'🖼️',csv:'📊',docx:'📘'}};
+let files = [];
+
+function icon(name) {{ return ICONS[name.split('.').pop().toLowerCase()] || '📎'; }}
+function fmtSize(b) {{
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+    return (b/1048576).toFixed(1) + ' MB';
+}}
+
+input.addEventListener('change', () => {{
+    files = Array.from(input.files);
+    fileList.innerHTML = '';
+    files.forEach((f, i) => {{
+        fileList.innerHTML += `
+        <div class="file-item" id="fi-${{i}}">
+            <div class="file-prog" id="fp-${{i}}"></div>
+            <span class="file-icon">${{icon(f.name)}}</span>
+            <span class="file-name">${{f.name}}</span>
+            <span class="file-size">${{fmtSize(f.size)}}</span>
+            <span class="file-stat" id="fs-${{i}}">⏳</span>
+        </div>`;
+    }});
+    sendBtn.disabled = files.length === 0;
+}});
+
+async function uploadFiles() {{
+    if (!files.length) return;
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = '<span class="spinner"></span>Sending...';
+    let ok = 0, fail = 0;
+    for (let i = 0; i < files.length; i++) {{
+        const prog = document.getElementById(`fp-${{i}}`);
+        const stat = document.getElementById(`fs-${{i}}`);
+        stat.textContent = '📤';
+        try {{
+            const fd = new FormData();
+            fd.append('file', files[i]);
+            await new Promise((res, rej) => {{
+                const xhr = new XMLHttpRequest();
+                xhr.upload.onprogress = e => {{
+                    if (e.lengthComputable) prog.style.width = (e.loaded/e.total*100) + '%';
+                }};
+                xhr.onload = () => {{ stat.textContent = xhr.status===200 ? '✅' : '❌'; xhr.status===200 ? ok++ : fail++; res(); }};
+                xhr.onerror = () => {{ stat.textContent = '❌'; fail++; res(); }};
+                xhr.open('POST', '/mobile/upload');
+                xhr.send(fd);
+            }});
+        }} catch(e) {{ document.getElementById(`fs-${{i}}`).textContent = '❌'; fail++; }}
+    }}
+    await fetch('/mobile/transfer-complete', {{method:'POST'}});
+    document.getElementById('pick-card').style.display = 'none';
+    sendBtn.style.display = 'none';
+    const sc = document.getElementById('status-card');
+    sc.style.display = 'block';
+    if (fail === 0) {{
+        document.getElementById('s-icon').textContent = '✅';
+        document.getElementById('s-title').textContent = `${{ok}} file${{ok>1?'s':''}} sent!`;
+        document.getElementById('s-msg').textContent = 'A prompt will appear on your PC to index them.';
+    }} else {{
+        document.getElementById('s-icon').textContent = '⚠️';
+        document.getElementById('s-title').textContent = `${{ok}} sent, ${{fail}} failed`;
+        document.getElementById('s-msg').textContent = 'Some files could not be transferred.';
+    }}
+}}
+</script>
+</body>
+</html>"""
+    return HTMLResponse(content=html)
+
+
+@app.post("/mobile/upload")
+async def mobile_upload(file: UploadFile = File(...)):
+    """Receives a single file from the phone and saves to Desktop/shared/."""
+    try:
+        dest = os.path.join(SHARED_FOLDER, file.filename)
+        with open(dest, "wb") as f:
+            shutil.copyfileobj(file.file, f)
+        _mobile_pending["files"].append(file.filename)
+        print(f"📱 Received from phone: {file.filename}")
+        return {"status": "ok", "file": file.filename}
+    except Exception as e:
+        print(f"❌ Mobile upload error: {e}")
+        return {"status": "error", "detail": str(e)}
+
+
+@app.post("/mobile/transfer-complete")
+async def mobile_transfer_complete():
+    """Phone calls this when all files are done uploading."""
+    _mobile_pending["active"] = True
+    _mobile_pending["folder"] = SHARED_FOLDER
+    print(f"📱 Transfer complete — {len(_mobile_pending['files'])} file(s) ready to index")
+    return {"status": "prompt_pending"}
+
+
+@app.get("/mobile/pending")
+def mobile_pending():
+    """Polled by the desktop UI every 4s to check for incoming files."""
+    return _mobile_pending
+
+
+@app.post("/mobile/dismiss-prompt")
+def mobile_dismiss_prompt():
+    """Called when user clicks 'Yes, Index Now' or 'Not Now'."""
+    _mobile_pending["active"] = False
+    _mobile_pending["files"] = []
+    return {"status": "dismissed"}
 
 @app.get("/pick-folder")
 def pick_folder_dialog():

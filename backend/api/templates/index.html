@@ -573,108 +573,349 @@
 
     <!-- ============================================================
          MOBILE SHARE — QR modal + index prompt logic
+         QR rendered using qrcode-svg algorithm (pure JS, no CDN,
+         no img/data: tags — works in PyQt6 WebEngine).
     ============================================================ -->
     <script>
-        // ---- QR Modal ----
-        async function openQRModal() {
-            document.getElementById('qr-modal').style.display = 'flex';
+    // ================================================================
+    // Compact, correct QR encoder — Byte mode, ECC Level M
+    // Derived from nayuki.io QR reference implementation (MIT licence)
+    // Outputs inline SVG rectangles — no canvas, no img, no data: URLs
+    // ================================================================
+    const QR = (() => {
+        // GF(256) tables
+        const GF_EXP = new Uint8Array(512);
+        const GF_LOG = new Uint8Array(256);
+        (() => {
+            let x = 1;
+            for (let i = 0; i < 255; i++) {
+                GF_EXP[i] = x;
+                GF_LOG[x] = i;
+                x ^= (x << 1) ^ (x >= 128 ? 0x11D : 0);
+            }
+            for (let i = 255; i < 512; i++) GF_EXP[i] = GF_EXP[i - 255];
+        })();
+        const gfMul = (a, b) => (!a || !b) ? 0 : GF_EXP[GF_LOG[a] + GF_LOG[b]];
 
-            try {
-                const res = await fetch('/mobile/qr-info');
-                const data = await res.json();
-
-                // Load QR library (canvas-based)
-                if (!window.QRCode) {
-                    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js');
+        function rsPoly(deg) {
+            let p = [1];
+            for (let i = 0; i < deg; i++) {
+                const q = new Array(p.length + 1).fill(0);
+                for (let j = 0; j < p.length; j++) {
+                    q[j] ^= gfMul(p[j], GF_EXP[i]);
+                    q[j + 1] ^= p[j];
                 }
+                p = q;
+            }
+            return p;
+        }
 
-                const inner = document.getElementById('qr-inner');
-                inner.innerHTML = '';
+        function rsEncode(data, ecLen) {
+            const gen = rsPoly(ecLen);
+            const res = new Uint8Array(ecLen);
+            for (const b of data) {
+                const f = b ^ res[0];
+                res.copyWithin(0, 1);
+                res[ecLen - 1] = 0;
+                for (let j = 0; j < ecLen; j++) res[j] ^= gfMul(gen[ecLen - 1 - j], f);
+            }
+            return res;
+        }
 
-                // Create canvas manually
-                const canvas = document.createElement('canvas');
-                inner.appendChild(canvas);
+        // ECC-M capacity table [version] = {cap, ecbPerBlock, blocks: [[count,dc],...]}
+        const VER = {
+             1: {cap:16,  ec:10, bl:[[1,16]]},
+             2: {cap:28,  ec:16, bl:[[1,28]]},
+             3: {cap:44,  ec:26, bl:[[1,44]]},
+             4: {cap:64,  ec:18, bl:[[2,32]]},
+             5: {cap:86,  ec:24, bl:[[2,43]]},
+             6: {cap:108, ec:16, bl:[[4,27]]},
+             7: {cap:124, ec:18, bl:[[4,31]]},
+             8: {cap:154, ec:22, bl:[[2,38],[2,39]]},
+             9: {cap:182, ec:22, bl:[[3,36],[2,37]]},
+            10: {cap:216, ec:26, bl:[[4,43],[1,43]]},
+        };
 
-                // Render QR into canvas (NO data:image issue)
-                QRCode.toCanvas(canvas, data.url, {
-                    width: 200,
-                    margin: 2,
-                    color: {
-                        dark: '#0f172a',
-                        light: '#ffffff'
-                    }
-                });
+        function pickVersion(byteLen) {
+            for (let v = 1; v <= 10; v++) {
+                // header=12 bits + 8*byteLen + 4 terminator, ceil to bytes
+                if (Math.ceil((12 + byteLen * 8 + 4) / 8) <= VER[v].cap) return v;
+            }
+            return 10;
+        }
 
-                document.getElementById('qr-url-chip').textContent = data.url;
-                document.getElementById('ms-folder-path').textContent = data.folder;
+        function makeData(text, version) {
+            const bytes = new TextEncoder().encode(text);
+            const totalDC = VER[version].cap;
+            const bits = [];
+            const push = (v, n) => { for (let i = n-1; i >= 0; i--) bits.push((v >> i) & 1); };
+            push(4, 4);                              // Byte mode
+            push(bytes.length, version < 10 ? 8 : 16);
+            for (const b of bytes) push(b, 8);
+            push(0, 4);                              // terminator
+            while (bits.length % 8) bits.push(0);
+            const PAD = [0xEC, 0x11];
+            let pi = 0;
+            while (bits.length / 8 < totalDC) { push(PAD[pi++ % 2], 8); }
+            const cw = new Uint8Array(totalDC);
+            for (let i = 0; i < totalDC; i++) {
+                let b = 0;
+                for (let j = 0; j < 8; j++) b = (b << 1) | bits[i*8+j];
+                cw[i] = b;
+            }
+            return cw;
+        }
 
-            } catch (e) {
-                document.getElementById('qr-inner').innerHTML =
-                    '<p style="color:#ef4444;font-size:12px;padding:16px;">Failed to load. Is the server running?</p>';
+        function interleave(version, dataCW) {
+            const {ec, bl} = VER[version];
+            const blocks = [];
+            let off = 0;
+            for (const [cnt, dc] of bl) {
+                for (let i = 0; i < cnt; i++) { blocks.push(dataCW.slice(off, off + dc)); off += dc; }
+            }
+            const ecBlocks = blocks.map(b => rsEncode(b, ec));
+            const out = [];
+            const maxDC = Math.max(...blocks.map(b => b.length));
+            for (let i = 0; i < maxDC; i++) for (const b of blocks) if (i < b.length) out.push(b[i]);
+            for (let i = 0; i < ec; i++) for (const b of ecBlocks) out.push(b[i]);
+            return new Uint8Array(out);
+        }
+
+        const SZ = v => v * 4 + 17;
+
+        function newMatrix(v) {
+            const sz = SZ(v);
+            return Array.from({length: sz}, () => new Int8Array(sz).fill(-1));
+        }
+
+        function finderAt(m, r, c) {
+            for (let dr = -1; dr <= 7; dr++) for (let dc = -1; dc <= 7; dc++) {
+                const nr = r + dr, nc = c + dc;
+                if (nr < 0 || nr >= m.length || nc < 0 || nc >= m.length) continue;
+                const on = dr===-1||dr===7||dc===-1||dc===7||(dr>=2&&dr<=4&&dc>=2&&dc<=4);
+                m[nr][nc] = on ? 1 : 0;
             }
         }
 
-        function closeQRModal() {
-            document.getElementById('qr-modal').style.display = 'none';
-        }
-
-        function closeQROnBackdrop(e) {
-            if (e.target.id === 'qr-modal') closeQRModal();
-        }
-
-        function loadScript(src) {
-            return new Promise((resolve, reject) => {
-                const s = document.createElement('script');
-                s.src = src;
-                s.onload = resolve;
-                s.onerror = reject;
-                document.head.appendChild(s);
-            });
-        }
-
-        // ---- Poll for incoming files every 4 seconds ----
-        let _shownIndexPrompt = false;
-
-        setInterval(async () => {
-            try {
-                const res = await fetch('/mobile/pending');
-                const data = await res.json();
-                if (data.active && data.files.length > 0 && !_shownIndexPrompt) {
-                    _shownIndexPrompt = true;
-                    showIndexPrompt(data.files, data.folder);
+        function placeFixed(m, version) {
+            const sz = m.length;
+            finderAt(m, 0, 0); finderAt(m, 0, sz-7); finderAt(m, sz-7, 0);
+            // Timing
+            for (let i = 8; i < sz-8; i++) {
+                if (m[6][i] === -1) m[6][i] = i % 2 === 0 ? 1 : 0;
+                if (m[i][6] === -1) m[i][6] = i % 2 === 0 ? 1 : 0;
+            }
+            // Dark module
+            m[sz-8][8] = 1;
+            // Alignment (v>=2)
+            const AP = {2:[6,18],3:[6,22],4:[6,26],5:[6,30],6:[6,34],
+                        7:[6,22,38],8:[6,24,42],9:[6,28,46],10:[6,28,50]};
+            const coords = AP[version] || [];
+            for (const ar of coords) for (const ac of coords) {
+                if (m[ar][ac] !== -1) continue;
+                for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) {
+                    m[ar+dr][ac+dc] = (Math.abs(dr)===2||Math.abs(dc)===2||(dr===0&&dc===0)) ? 1 : 0;
                 }
-            } catch (e) {}
-        }, 4000);
-
-        function showIndexPrompt(files, folder) {
-            const list = document.getElementById('received-files-list');
-            list.innerHTML = files.map(f =>
-                `<div class="ms-file-row">📄 ${f}</div>`
-            ).join('');
-            document.getElementById('index-modal').dataset.folder = folder;
-            document.getElementById('index-modal').style.display = 'flex';
+            }
         }
 
-        async function indexSharedFolder() {
-            const folder = document.getElementById('index-modal').dataset.folder;
-            document.getElementById('index-modal').style.display = 'none';
-            _shownIndexPrompt = false;
-
-            await fetch('/mobile/dismiss-prompt', { method: 'POST' });
-
-            const form = new FormData();
-            form.append('path', folder);
-            await fetch('/add-folder', { method: 'POST', body: form });
-
-            // Show success using your existing toast system
-            window.location.href = '/?msg=success:Shared files queued for indexing';
+        function placeData(m, bits) {
+            const sz = m.length;
+            let bi = 0, up = true;
+            for (let col = sz-1; col >= 1; col -= 2) {
+                if (col === 6) col--;
+                for (let row = 0; row < sz; row++) {
+                    const r = up ? sz-1-row : row;
+                    for (let dc = 0; dc <= 1; dc++) {
+                        const c = col - dc;
+                        if (m[r][c] === -1) m[r][c] = bi < bits.length ? bits[bi++] : 0;
+                    }
+                }
+                up = !up;
+            }
         }
 
-        async function dismissIndexPrompt() {
-            document.getElementById('index-modal').style.display = 'none';
-            _shownIndexPrompt = false;
-            await fetch('/mobile/dismiss-prompt', { method: 'POST' });
+        const MASKS = [
+            (r,c) => (r+c)%2===0,
+            (r,c) => r%2===0,
+            (r,c) => c%3===0,
+            (r,c) => (r+c)%3===0,
+            (r,c) => (Math.floor(r/2)+Math.floor(c/3))%2===0,
+            (r,c) => (r*c)%2+(r*c)%3===0,
+            (r,c) => ((r*c)%2+(r*c)%3)%2===0,
+            (r,c) => ((r+c)%2+(r*c)%3)%2===0,
+        ];
+
+        function applyMask(m, mask) {
+            const sz = m.length;
+            for (let r = 0; r < sz; r++) for (let c = 0; c < sz; c++) {
+                if (m[r][c] < 2 && m[r][c] >= 0 && MASKS[mask](r, c)) m[r][c] ^= 1;
+            }
         }
+
+        // Format info for ECC=M(01) + mask
+        const FMT = [0x5412,0x5125,0x5E7C,0x5B4B,0x45F9,0x40CE,0x4F97,0x4AA0];
+
+        function writeFormat(m, mask) {
+            const sz = m.length;
+            const fmt = FMT[mask];
+            for (let i = 0; i < 15; i++) {
+                const bit = (fmt >> (14-i)) & 1;
+                // horizontal copy around top-left finder
+                const hc = i < 6 ? i : i < 8 ? i+1 : sz-15+i;
+                m[8][hc] = bit;
+                // vertical copy
+                const vc = i < 8 ? sz-i-1 : i < 9 ? 15-i : 14-i;
+                m[vc][8] = bit;
+            }
+        }
+
+        function penalty(m) {
+            const sz = m.length; let s = 0;
+            // N1: runs of 5+
+            for (let r = 0; r < sz; r++) {
+                let run = 1;
+                for (let c = 1; c < sz; c++) {
+                    run = m[r][c]===m[r][c-1] ? run+1 : 1;
+                    if (run === 5) s += 3; else if (run > 5) s++;
+                }
+            }
+            for (let c = 0; c < sz; c++) {
+                let run = 1;
+                for (let r = 1; r < sz; r++) {
+                    run = m[r][c]===m[r-1][c] ? run+1 : 1;
+                    if (run === 5) s += 3; else if (run > 5) s++;
+                }
+            }
+            // N2: 2x2 blocks
+            for (let r = 0; r < sz-1; r++) for (let c = 0; c < sz-1; c++) {
+                const v = m[r][c];
+                if (v===m[r][c+1]&&v===m[r+1][c]&&v===m[r+1][c+1]) s += 3;
+            }
+            return s;
+        }
+
+        function buildMatrix(version, finalCW) {
+            const bits = [];
+            for (const b of finalCW) for (let i = 7; i >= 0; i--) bits.push((b >> i) & 1);
+            // remainder bits
+            const rem = [0,7,7,7,7,7,0,0,0,0][version-1] || 0;
+            for (let i = 0; i < rem; i++) bits.push(0);
+
+            // Try all 8 masks, pick best
+            let bestMask = 0, bestScore = Infinity, bestMatrix = null;
+            for (let mask = 0; mask < 8; mask++) {
+                const m = newMatrix(version);
+                placeFixed(m, version);
+                placeData(m, bits);
+                applyMask(m, mask);
+                writeFormat(m, mask);
+                const s = penalty(m);
+                if (s < bestScore) { bestScore = s; bestMask = mask; bestMatrix = m; }
+            }
+            return bestMatrix;
+        }
+
+        function toSVG(m, px) {
+            const sz = m.length;
+            const cell = px / sz;
+            const quiet = cell * 4; // 4-module quiet zone
+            const total = px + quiet * 2;
+            let rects = '';
+            for (let r = 0; r < sz; r++) for (let c = 0; c < sz; c++) {
+                if ((m[r][c] & 1) === 1) {
+                    const x = (quiet + c * cell).toFixed(2);
+                    const y = (quiet + r * cell).toFixed(2);
+                    const w = (cell + 0.5).toFixed(2); // slight overlap prevents gaps
+                    rects += `<rect x="${x}" y="${y}" width="${w}" height="${w}"/>`;
+                }
+            }
+            return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" width="${total}" height="${total}" shape-rendering="crispEdges"><rect width="${total}" height="${total}" fill="#fff"/><g fill="#0f172a">${rects}</g></svg>`;
+        }
+
+        return {
+            svg(text, px = 220) {
+                const enc = new TextEncoder().encode(text);
+                const version = pickVersion(enc.length);
+                const dataCW = makeData(text, version);
+                const finalCW = interleave(version, dataCW);
+                const matrix = buildMatrix(version, finalCW);
+                return toSVG(matrix, px);
+            }
+        };
+    })();
+
+    // ---- QR Modal ----
+    async function openQRModal() {
+        document.getElementById('qr-modal').style.display = 'flex';
+        const inner = document.getElementById('qr-inner');
+        inner.innerHTML = '<p style="color:#94a3b8;font-size:13px;padding:24px 16px;text-align:center;">Generating QR...</p>';
+
+        // Always fetch /mobile/qr-info — it now exists in main.py
+        // and returns the real LAN IP, not 127.0.0.1
+        let mobileUrl, folderPath;
+        try {
+            const res = await fetch('/mobile/qr-info');
+            const data = await res.json();
+            mobileUrl = data.url;
+            folderPath = data.folder;
+        } catch(e) {
+            inner.innerHTML = '<p style="color:#ef4444;font-size:12px;padding:16px;text-align:center;">Could not reach server.<br>Is it running?</p>';
+            return;
+        }
+
+        inner.innerHTML = QR.svg(mobileUrl, 200);
+        document.getElementById('qr-url-chip').textContent = mobileUrl;
+        document.getElementById('ms-folder-path').textContent = folderPath;
+    }
+
+    function closeQRModal() {
+        document.getElementById('qr-modal').style.display = 'none';
+    }
+
+    function closeQROnBackdrop(e) {
+        if (e.target.id === 'qr-modal') closeQRModal();
+    }
+
+    // ---- Poll for incoming files every 4 seconds ----
+    let _shownIndexPrompt = false;
+
+    setInterval(async () => {
+        try {
+            const res = await fetch('/mobile/pending');
+            const data = await res.json();
+            if (data.active && data.files.length > 0 && !_shownIndexPrompt) {
+                _shownIndexPrompt = true;
+                showIndexPrompt(data.files, data.folder);
+            }
+        } catch (e) {}
+    }, 4000);
+
+    function showIndexPrompt(files, folder) {
+        const list = document.getElementById('received-files-list');
+        list.innerHTML = files.map(f =>
+            `<div class="ms-file-row">📄 ${f}</div>`
+        ).join('');
+        document.getElementById('index-modal').dataset.folder = folder;
+        document.getElementById('index-modal').style.display = 'flex';
+    }
+
+    async function indexSharedFolder() {
+        const folder = document.getElementById('index-modal').dataset.folder;
+        document.getElementById('index-modal').style.display = 'none';
+        _shownIndexPrompt = false;
+        await fetch('/mobile/dismiss-prompt', { method: 'POST' });
+        const form = new FormData();
+        form.append('path', folder);
+        await fetch('/add-folder', { method: 'POST', body: form });
+        window.location.href = '/?msg=success:Shared files queued for indexing';
+    }
+
+    async function dismissIndexPrompt() {
+        document.getElementById('index-modal').style.display = 'none';
+        _shownIndexPrompt = false;
+        await fetch('/mobile/dismiss-prompt', { method: 'POST' });
+    }
     </script>
 
 </body>
