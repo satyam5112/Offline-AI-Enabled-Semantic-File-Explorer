@@ -3,6 +3,7 @@ import os
 import time
 import threading
 import subprocess
+import socket
 from PyQt6.QtGui import QIcon, QPixmap
 
 os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = "--disable-gpu --disable-gpu-compositing"
@@ -31,29 +32,48 @@ sys.path.insert(0, BASE_DIR)
 sys.path.insert(0, BACKEND_DIR)
 
 from backend.task_queue.file_queue import file_queue, queued_files
-# from backend.configuration import BASE_FOLDER_ADDRESS
+
+
+# ---- Get LAN IP ----
+def get_local_ip():
+    """Returns the LAN IP of this machine (e.g. 192.168.x.x)"""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 80))
+        ip = s.getsockname()[0]
+        s.close()
+        return ip
+    except Exception:
+        return "127.0.0.1"
+
 
 # ---- Signal class for thread-safe UI updates ----
 class WorkerSignals(QObject):
     status_update = pyqtSignal(str)
 
+
 # ---- Start FastAPI in background ----
 def start_fastapi():
+    """
+    Binds to 0.0.0.0 so the server is reachable on the LAN
+    (needed for mobile share). The PyQt browser still connects
+    via 127.0.0.1 — both work simultaneously.
+    """
     subprocess.Popen(
         [
             sys.executable, "-m", "uvicorn",
             "backend.api.main:app",
-            "--host", "127.0.0.1",
+            "--host", "0.0.0.0",   # ← changed from 127.0.0.1
             "--port", "8000"
         ],
         cwd=BASE_DIR,
-        # ✅ Temporarily showing output to debug
         # stdout=subprocess.DEVNULL,
         # stderr=subprocess.DEVNULL
     )
 
+
 # ---- Wait for FastAPI to be ready ----
-def wait_for_server(timeout=60):       # ✅ increased to 60s
+def wait_for_server(timeout=60):
     import urllib.request
     start = time.time()
     while time.time() - start < timeout:
@@ -64,6 +84,7 @@ def wait_for_server(timeout=60):       # ✅ increased to 60s
             time.sleep(0.5)
     return False
 
+
 # ---- Main Window ----
 class MainWindow(QMainWindow):
     server_ready = pyqtSignal()
@@ -73,6 +94,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("DocS AI — Semantic File Search")
         self.setMinimumSize(1280, 800)
         self.resize(1400, 900)
+        self._lan_ip = get_local_ip()
 
         from PyQt6.QtGui import QIcon
         icon_path = os.path.join(BASE_DIR, "logo.ico")
@@ -121,6 +143,19 @@ class MainWindow(QMainWindow):
         toolbar_layout.addWidget(title_widget)
         toolbar_layout.addStretch()
 
+        # ---- LAN IP label (shown after server starts) ----
+        self.lan_label = QLabel()
+        self.lan_label.setStyleSheet("""
+            color: #64748b;
+            font-size: 11px;
+            padding: 2px 8px;
+            border: 1px solid #1e293b;
+            border-radius: 6px;
+            font-family: monospace;
+        """)
+        self.lan_label.setVisible(False)  # shown once server is ready
+        toolbar_layout.addWidget(self.lan_label)
+
         # ---- Refresh button ----
         self.refresh_btn = QPushButton("🔄")
         self.refresh_btn.setFixedSize(32, 32)
@@ -142,18 +177,14 @@ class MainWindow(QMainWindow):
 
         # ---- Browser with loading page ----
         self.browser = QWebEngineView()
-
         self.browser.page().profile().downloadRequested.connect(self.handle_download)
 
-        # ✅ Show loading page while server starts
         self.browser.setHtml("""
             <html>
             <body style="background:#0f172a; display:flex; align-items:center;
                         justify-content:center; height:100vh; margin:0;
                         font-family: -apple-system, sans-serif;">
                 <div style="text-align:center;">
-                    <img src="http://127.0.0.1:8000/static/logo.png"
-                        style="width:80px; height:80px; margin-bottom:16px; border-radius:16px;">
                     <div style="color:#fff; font-size:24px; font-weight:700; margin-bottom:8px;">
                         DocS AI
                     </div>
@@ -185,7 +216,6 @@ class MainWindow(QMainWindow):
         # ---- Start FastAPI in background thread ----
         threading.Thread(target=self.start_server, daemon=True).start()
 
-    # ✅ Updated start_server
     def start_server(self):
         start_fastapi()
         print("⏳ Waiting for server...")
@@ -199,10 +229,19 @@ class MainWindow(QMainWindow):
                 "❌ Server failed to start — try restarting the app"
             ))
 
-    # ✅ Updated on_server_ready
     def on_server_ready(self):
+        # Desktop browser uses localhost
         self.browser.setUrl(QUrl("http://127.0.0.1:8000"))
-        self.status_bar.showMessage("✅ Server running — http://127.0.0.1:8000")
+
+        # Show LAN IP in toolbar so user knows what to type on phone
+        if self._lan_ip != "127.0.0.1":
+            self.lan_label.setText(f"📱 Phone: http://{self._lan_ip}:8000/mobile")
+            self.lan_label.setVisible(True)
+
+        self.status_bar.showMessage(
+            f"✅ Running — Desktop: http://127.0.0.1:8000   |   "
+            f"Phone (same WiFi): http://{self._lan_ip}:8000/mobile"
+        )
 
     def refresh_page(self):
         self.browser.reload()
@@ -211,11 +250,7 @@ class MainWindow(QMainWindow):
         download.cancel()
 
     def closeEvent(self, event):
-        """Called when user clicks X to close the window"""
-        import signal
         print("🛑 Shutting down DocS AI...")
-        
-        # ✅ Kill FastAPI process on port 8000
         try:
             result = subprocess.run(
                 'netstat -ano | findstr :8000',
@@ -225,23 +260,18 @@ class MainWindow(QMainWindow):
                 if 'LISTENING' in line:
                     pid = line.strip().split()[-1]
                     subprocess.run(f'taskkill /PID {pid} /F',
-                                shell=True, capture_output=True)
+                                   shell=True, capture_output=True)
                     print(f"✅ Killed FastAPI (PID: {pid})")
         except Exception as e:
             print(f"⚠️ Shutdown error: {e}")
-        
-        event.accept()  # ✅ Allow window to close
+        event.accept()
+
 
 # ---- Splash Screen ----
 def show_splash():
     splash_widget = QSplashScreen()
     splash_widget.setFixedSize(500, 300)
-    splash_widget.setStyleSheet("""
-        QSplashScreen {
-            background: #0f172a;
-            border-radius: 16px;
-        }
-    """)
+    splash_widget.setStyleSheet("QSplashScreen { background: #0f172a; border-radius: 16px; }")
 
     layout = QVBoxLayout(splash_widget)
     layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -276,14 +306,12 @@ if __name__ == "__main__":
     if os.path.exists(icon_path):
         app.setWindowIcon(QIcon(icon_path))
 
-    # Show splash
     splash = show_splash()
     splash.show()
     app.processEvents()
 
     time.sleep(1)
 
-    # Show main window
     window = MainWindow()
     window.show()
     splash.finish(window)

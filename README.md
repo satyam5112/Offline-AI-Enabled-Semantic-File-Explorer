@@ -41,8 +41,7 @@ scanned PDFs
 
 16. Web Interface + Mobile Access
 Access your search from:
-
-phone → localhost server
+--> made changes in html and css code, created a folder mobile_share, but apis are not created yet, and qr is not showing up.
 
 17. Chat with Files (🔥 CRAZY FEATURE)
 User asks:
@@ -50,3 +49,7 @@ User asks:
 "what does my DV lab manual say about filtering?"
 → system searches + answers
 
+
+feature: personal vault with locking mechanism
+
+show full path for files in search result.

@@ -16,7 +16,6 @@ a.nav-item { text-decoration: none; }
 /* SIDEBAR */
 .sidebar { width: 220px; background: #0f172a; height: 100vh; position: fixed; left: 0; top: 0; padding: 24px 16px; display: flex; flex-direction: column; }
 .logo { color: #fff; font-size: 18px; font-weight: 700; padding: 0 8px 20px; border-bottom: 1px solid #1e293b; margin-bottom: 12px; display: flex; align-items: center; gap: 8px; }
-/* .logo-icon { width: 28px; height: 28px; background: #3b82f6; border-radius: 8px; display: flex; align-items: center; justify-content: center; font-size: 14px; color: #fff; font-weight: 800; } */
 .nav-item { color: #94a3b8; font-size: 13px; padding: 9px 12px; border-radius: 8px; cursor: pointer; display: flex; align-items: center; gap: 10px; margin-bottom: 2px; transition: all 0.15s; }
 .nav-item:hover { background: #1e293b; color: #fff; }
 .nav-item.active { background: #1e293b; color: #60a5fa; }
@@ -184,3 +183,252 @@ a.nav-item { text-decoration: none; }
     font-weight: 700;
     color: #3b82f6;
 }
+
+/* RECENT SEARCHES */
+.recent-searches {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid #f1f5f9;
+}
+.recent-label {
+    font-size: 12px;
+    color: #94a3b8;
+    font-weight: 500;
+    margin-right: 4px;
+}
+.recent-chip {
+    background: #f1f5f9;
+    border: 1px solid #e2e8f0;
+    border-radius: 20px;
+    padding: 4px 12px;
+    font-size: 12px;
+    color: #374151;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+.recent-chip:hover {
+    background: #eff6ff;
+    border-color: #bfdbfe;
+    color: #2563eb;
+}
+.recent-clear {
+    background: none;
+    border: none;
+    font-size: 11px;
+    color: #94a3b8;
+    cursor: pointer;
+    margin-left: auto;
+    padding: 4px 8px;
+    border-radius: 6px;
+}
+.recent-clear:hover { color: #ef4444; background: #fee2e2; }
+
+/* ============================================================
+   MOBILE SHARE — QR modal + index prompt
+   Matches your existing light theme: white cards, #0f172a dark,
+   #2563eb blue accent, same border/radius/font conventions.
+============================================================ */
+
+/* "Show QR Code" button inside side-card — matches btn-upload style */
+.btn-share-phone {
+    width: 100%;
+    background: #2563eb;
+    color: #fff;
+    border: none;
+    padding: 11px;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.15s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+}
+.btn-share-phone:hover { background: #1d4ed8; }
+
+/* Shared overlay backdrop — same as your reset modal */
+.ms-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.6);
+    z-index: 9999;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+}
+
+/* Modal box — white card matching your report modal style */
+.ms-box {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    border-radius: 16px;
+    padding: 32px 28px;
+    width: 100%;
+    max-width: 400px;
+    position: relative;
+}
+
+/* Close button */
+.ms-close {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    background: #f1f5f9;
+    border: none;
+    border-radius: 8px;
+    width: 28px;
+    height: 28px;
+    font-size: 13px;
+    color: #374151;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    transition: background 0.15s;
+}
+.ms-close:hover { background: #fee2e2; color: #ef4444; }
+
+/* Header section */
+.ms-header { text-align: center; margin-bottom: 20px; }
+.ms-icon { font-size: 36px; display: block; margin-bottom: 8px; }
+.ms-title { font-size: 18px; font-weight: 700; color: #0f172a; margin-bottom: 4px; }
+.ms-sub { font-size: 12px; color: #64748b; }
+
+/* QR code container */
+.ms-qr-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 12px;
+    padding: 12px;
+    margin: 0 auto 16px;
+    width: fit-content;
+}
+
+/* URL chip below QR */
+.ms-url-chip {
+    text-align: center;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+    padding: 7px 14px;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    color: #1d4ed8;
+    margin-bottom: 16px;
+    word-break: break-all;
+}
+
+/* Step list */
+.ms-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+.ms-step {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 13px;
+    color: #475569;
+}
+.ms-step-num {
+    width: 22px;
+    height: 22px;
+    background: #eff6ff;
+    color: #2563eb;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+    border: 1px solid #bfdbfe;
+}
+
+/* Folder path note at bottom of QR modal */
+.ms-folder-note {
+    text-align: center;
+    font-size: 11px;
+    color: #94a3b8;
+    padding-top: 12px;
+    border-top: 1px solid #f1f5f9;
+}
+.ms-folder-note code {
+    color: #2563eb;
+    font-size: 11px;
+}
+
+/* Received files list in index prompt */
+.ms-file-list {
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 10px 14px;
+    max-height: 140px;
+    overflow-y: auto;
+    margin-bottom: 14px;
+    font-size: 13px;
+    color: #374151;
+    line-height: 1.9;
+}
+.ms-file-row {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* "Would you like to index..." question */
+.ms-index-question {
+    font-size: 13px;
+    color: #374151;
+    text-align: center;
+    margin-bottom: 18px;
+    line-height: 1.5;
+}
+
+/* Action buttons row in index prompt */
+.ms-actions {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+/* "Not Now" button — subtle, matches your cancel button style */
+.ms-btn-no {
+    flex: 1;
+    background: none;
+    border: 1.5px solid #e2e8f0;
+    border-radius: 10px;
+    padding: 11px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #64748b;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+}
+.ms-btn-no:hover { background: #f8fafc; border-color: #cbd5e1; color: #374151; }
+
+#qr-inner {
+    width: 220px;
+    height: 220px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f8fafc;
+    border: 2px dashed #cbd5f5;
+    border-radius: 12px;

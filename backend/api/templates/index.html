@@ -24,20 +24,20 @@
         }, 4000);
     </script>
     {% endif %}
+
     <!-- SIDEBAR -->
     <aside class="sidebar">
         <div class="logo" style="display:flex; align-items:center; gap:8px;">
             Menu
         </div>
         <nav>
-            
             <a href="/" class="nav-item active">🔍 Search</a>
             <a href="/files" class="nav-item">📁 My Files</a>
         </nav>
         <div class="sidebar-bottom">
             <button class="btn-reset-nav" onclick="showResetModal()">🗑️ Reset Database</button>
 
-            <!-- Custom Reset Modal -->
+            <!-- Reset Modal -->
             <div id="reset-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center;">
                 <div style="background:#1e293b; border-radius:16px; padding:32px; width:380px; border:1px solid #334155; text-align:center;">
                     <div style="font-size:40px; margin-bottom:16px;">⚠️</div>
@@ -66,14 +66,11 @@
 
             <script>
                 function showResetModal() {
-                    const modal = document.getElementById('reset-modal');
-                    modal.style.display = 'flex';
+                    document.getElementById('reset-modal').style.display = 'flex';
                 }
                 function hideResetModal() {
-                    const modal = document.getElementById('reset-modal');
-                    modal.style.display = 'none';
+                    document.getElementById('reset-modal').style.display = 'none';
                 }
-                // Close on outside click
                 document.getElementById('reset-modal').addEventListener('click', function(e) {
                     if (e.target === this) hideResetModal();
                 });
@@ -121,7 +118,10 @@
             <div class="search-label">Search your documents</div>
             <form method="post" action="/search-ui" class="search-row">
                 <input class="search-input" type="text" name="query"
-                       placeholder="🔍  Enter search query..." required>
+                    id="search-input"
+                    placeholder="🔍  Enter search query..."
+                    autocomplete="off"
+                    required>
                 <select class="filter-input" name="file_type">
                     <option value="">All Types</option>
                     <option value=".txt">📄 Text (.txt)</option>
@@ -130,9 +130,21 @@
                     <option value=".csv">📊 CSV (.csv)</option>
                 </select>
                 <input class="filter-input" type="text" name="folder"
-                       placeholder="Folder name">
+                    placeholder="Folder name">
                 <button class="btn-primary" type="submit">Search</button>
             </form>
+
+            {% if recent_searches %}
+            <div class="recent-searches">
+                <span class="recent-label">Recent:</span>
+                {% for q in recent_searches %}
+                <button class="recent-chip" onclick="setSearch('{{ q }}')">
+                    🕐 {{ q }}
+                </button>
+                {% endfor %}
+                <button class="recent-clear" onclick="clearSearches()">Clear</button>
+            </div>
+            {% endif %}
         </div>
 
         <!-- PANEL ROW -->
@@ -167,8 +179,8 @@
                             </div>
                             <div class="result-folder">
                                 📂 {{ r.folder }} &nbsp;·&nbsp;
-                                <a href="javascript:void(0)" 
-                                    onclick="openFile('{{ r.file_path }}')" 
+                                <a href="javascript:void(0)"
+                                    onclick="openFile('{{ r.file_path }}')"
                                     class="open-link">Open File ↗</a>
                             </div>
                             <div class="result-chunk">{{ r.chunk | safe }}...</div>
@@ -219,9 +231,24 @@
                         <button class="btn-upload" type="submit">+ Add Files</button>
                     </form>
                 </div>
+
+                <!-- ✅ SHARE FROM PHONE — new card -->
+                <div class="side-card">
+                    <div class="side-title">📱 Share from Phone</div>
+                    <p style="font-size:12px; color:#64748b; margin-bottom:12px; line-height:1.6;">
+                        Send files wirelessly from your phone on the same WiFi network.
+                    </p>
+                    <button class="btn-share-phone" onclick="openQRModal()">
+                        📡 Show QR Code
+                    </button>
+                    <div style="margin-top:8px; font-size:11px; color:#94a3b8;">
+                        Files saved to Desktop/shared/
+                    </div>
+                </div>
+
+                <!-- WATCHING -->
                 <div class="side-card">
                     <div class="side-title">👀 Watching</div>
-
                     {% if folders %}
                         <div class="watched-list">
                             {% for f in folders %}
@@ -248,10 +275,10 @@
                         </div>
                     {% endif %}
                 </div>
+
                 <!-- ADD FOLDER -->
                 <div class="side-card">
                     <div class="side-title">📂 Add Folder</div>
-                    
                     <div id="selected-folder" style="
                         width:100%;
                         padding:10px;
@@ -264,16 +291,14 @@
                         min-height:40px;
                         word-break:break-all;
                     ">No folder selected</div>
-
                     <button class="btn-upload" onclick="pickFolder()">
                         📂 Browse Folder
                     </button>
-
                     <div style="margin-top:8px; font-size:11px; color:#94a3b8;">
                         Scan + Watch folder for changes
                     </div>
                 </div>
-                
+
                 <!-- FILE TYPE BREAKDOWN -->
                 <div class="side-card">
                     <div class="side-title">📊 File Types</div>
@@ -298,6 +323,7 @@
 
         </div>
     </main>
+
     <!-- PROGRESS BAR -->
     <div id="progress-modal" class="progress-modal">
         <div class="progress-header">
@@ -316,7 +342,109 @@
         </div>
     </div>
 
-    <!-- NOTIFICATION SCRIPT -->
+    <!-- ============================================================
+         QR MODAL — shown when user clicks "Show QR Code"
+    ============================================================ -->
+    <div id="qr-modal" class="ms-overlay" onclick="closeQROnBackdrop(event)">
+        <div class="ms-box">
+            <button class="ms-close" onclick="closeQRModal()">✕</button>
+
+            <div class="ms-header">
+                <span class="ms-icon">📡</span>
+                <h2 class="ms-title">Scan to Send Files</h2>
+                <p class="ms-sub">Open on your phone — same WiFi required</p>
+            </div>
+
+            <!-- QR code renders here -->
+            <div id="qr-container" class="ms-qr-wrap">
+                <div id="qr-inner"></div>
+            </div>
+
+            <div id="qr-url-chip" class="ms-url-chip">Loading...</div>
+
+            <div class="ms-steps">
+                <div class="ms-step"><span class="ms-step-num">1</span> Connect phone to same WiFi</div>
+                <div class="ms-step"><span class="ms-step-num">2</span> Scan QR or type the URL</div>
+                <div class="ms-step"><span class="ms-step-num">3</span> Pick files &amp; tap Send</div>
+            </div>
+
+            <div class="ms-folder-note">
+                Files saved to: <code id="ms-folder-path">~/Desktop/shared</code>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         INDEX PROMPT MODAL — appears when phone finishes transfer
+    ============================================================ -->
+    <div id="index-modal" class="ms-overlay" style="display:none;">
+        <div class="ms-box">
+            <div class="ms-header">
+                <span class="ms-icon">📥</span>
+                <h2 class="ms-title">Files Received!</h2>
+                <p class="ms-sub">New files arrived in your shared folder</p>
+            </div>
+
+            <div id="received-files-list" class="ms-file-list"></div>
+
+            <p class="ms-index-question">Would you like to index these files so you can search them?</p>
+
+            <div class="ms-actions">
+                <button class="btn-primary" style="flex:1;" onclick="indexSharedFolder()">
+                    ✅ Yes, Index Now
+                </button>
+                <button class="ms-btn-no" onclick="dismissIndexPrompt()">
+                    Not Now
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PROCESSING REPORT MODAL -->
+    <div id="report-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:99999; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:16px; width:520px; max-height:80vh; display:flex; flex-direction:column; overflow:hidden; border:1px solid #e2e8f0;">
+            <div style="padding:20px 24px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                    <div style="font-size:16px; font-weight:700; color:#0f172a;">📊 Indexing Report</div>
+                    <div style="font-size:12px; color:#64748b; margin-top:2px;" id="report-summary"></div>
+                </div>
+                <button onclick="closeReport()" style="background:#f1f5f9; border:none; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:13px; color:#374151; font-weight:600;">
+                    Close ✕
+                </button>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:16px 24px; border-bottom:1px solid #f1f5f9;">
+                <div style="background:#f0fdf4; border-radius:10px; padding:12px 16px; border:1px solid #bbf7d0;">
+                    <div style="font-size:11px; color:#166534; font-weight:600; margin-bottom:4px;">✅ SUCCESSFULLY INDEXED</div>
+                    <div style="font-size:28px; font-weight:700; color:#15803d;" id="success-count">0</div>
+                </div>
+                <div style="background:#fef2f2; border-radius:10px; padding:12px 16px; border:1px solid #fecaca;">
+                    <div style="font-size:11px; color:#991b1b; font-weight:600; margin-bottom:4px;">❌ FAILED</div>
+                    <div style="font-size:28px; font-weight:700; color:#dc2626;" id="failed-count">0</div>
+                </div>
+            </div>
+            <div style="overflow-y:auto; flex:1; padding:16px 24px;">
+                <div id="success-section">
+                    <div style="font-size:12px; font-weight:600; color:#166534; margin-bottom:8px;">✅ Indexed Successfully</div>
+                    <div id="success-list" style="display:flex; flex-direction:column; gap:4px; margin-bottom:16px;"></div>
+                </div>
+                <div id="failed-section" style="display:none;">
+                    <div style="font-size:12px; font-weight:600; color:#dc2626; margin-bottom:8px;">❌ Failed Files</div>
+                    <div id="failed-list" style="display:flex; flex-direction:column; gap:4px;"></div>
+                </div>
+            </div>
+            <div style="padding:16px 24px; border-top:1px solid #f1f5f9; display:flex; justify-content:flex-end;">
+                <button onclick="closeReport()" style="background:#2563eb; color:#fff; border:none; border-radius:10px; padding:10px 24px; font-size:14px; font-weight:600; cursor:pointer;">
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         SCRIPTS
+    ============================================================ -->
+
+    <!-- Notification poller -->
     <script>
         function updateLabel(input) {
             const label = document.getElementById('file-label');
@@ -337,20 +465,22 @@
             } catch (e) {}
         }, 10000);
     </script>
+
+    <!-- Open file natively -->
     <script>
         async function openFile(path) {
             try {
-                const response = await fetch(`/open-native?path=${encodeURIComponent(path)}`);
+                const fixedPath = path.replace(/\//g, "\\");
+                const response = await fetch(`/open-native?path=${encodeURIComponent(fixedPath)}`);
                 const data = await response.json();
-                if (data.error) {
-                    alert('❌ Could not open file: ' + data.error);
-                }
+                if (data.error) alert('❌ Could not open file: ' + data.error);
             } catch (err) {
                 alert('❌ Failed to open file');
             }
         }
     </script>
-    <!-- PROGRESS TRACKER -->
+
+    <!-- Progress tracker -->
     <script>
         setInterval(async () => {
             try {
@@ -358,12 +488,7 @@
                 const data = await res.json();
 
                 const modal = document.getElementById("progress-modal");
-
-                if (data.active) {
-                    modal.style.display = "block";
-                } else {
-                    modal.style.display = "none";
-                }
+                modal.style.display = data.active ? "block" : "none";
 
                 document.getElementById("total").innerText = data.total;
                 document.getElementById("processed").innerText = data.processed;
@@ -371,101 +496,59 @@
                 const fileName = (data.current_file || "").split("\\").pop().split("/").pop();
                 document.getElementById("current").innerText = fileName || "Preparing...";
 
-                const percent = data.total > 0
-                    ? Math.round((data.processed / data.total) * 100)
-                    : 0;
-
+                const percent = data.total > 0 ? Math.round((data.processed / data.total) * 100) : 0;
                 document.getElementById("bar-fill").style.width = percent + "%";
                 document.getElementById("progress-percent").innerText = percent + "%";
 
-                // ✅ Show report when done
-                if (data.report_ready) {
-                    showReport(data);
-                }
-
+                if (data.report_ready) showReport(data);
             } catch (e) {}
         }, 1000);
 
-        // ---- Show Report Modal ----
         function showReport(data) {
-            const modal = document.getElementById("report-modal");
-            modal.style.display = "flex";
+            document.getElementById("report-modal").style.display = "flex";
+            document.getElementById("report-summary").innerText = `${data.total} files processed`;
+            document.getElementById("success-count").innerText = data.success_files.length;
+            document.getElementById("failed-count").innerText = data.failed_files.length;
 
-            // Summary
-            document.getElementById("report-summary").innerText =
-                `${data.total} files processed`;
-
-            // Counts
-            document.getElementById("success-count").innerText =
-                data.success_files.length;
-            document.getElementById("failed-count").innerText =
-                data.failed_files.length;
-
-            // Success list
             const successList = document.getElementById("success-list");
             successList.innerHTML = "";
             if (data.success_files.length > 0) {
                 data.success_files.forEach(f => {
-                    successList.innerHTML += `
-                        <div style="display:flex; align-items:center; gap:8px; padding:7px 10px;
-                                    background:#f0fdf4; border-radius:8px; font-size:12px; color:#166534;">
-                            <span>✅</span>
-                            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${f}</span>
-                        </div>`;
+                    successList.innerHTML += `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#f0fdf4;border-radius:8px;font-size:12px;color:#166534;"><span>✅</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f}</span></div>`;
                 });
             } else {
                 document.getElementById("success-section").style.display = "none";
             }
 
-            // Failed list
             const failedList = document.getElementById("failed-list");
             failedList.innerHTML = "";
             if (data.failed_files.length > 0) {
                 document.getElementById("failed-section").style.display = "block";
                 data.failed_files.forEach(f => {
-                    failedList.innerHTML += `
-                        <div style="display:flex; align-items:center; gap:8px; padding:7px 10px;
-                                    background:#fef2f2; border-radius:8px; font-size:12px; color:#dc2626;">
-                            <span>❌</span>
-                            <span style="overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${f}</span>
-                        </div>`;
+                    failedList.innerHTML += `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#fef2f2;border-radius:8px;font-size:12px;color:#dc2626;"><span>❌</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f}</span></div>`;
                 });
             }
         }
 
-        // ---- Close Report ----
         async function closeReport() {
             document.getElementById("report-modal").style.display = "none";
-
-            // ✅ Clear report data on server
             await fetch("/clear-report", { method: "POST" });
-
-            // ✅ Refresh page to update stats
             window.location.reload();
         }
     </script>
+
+    <!-- Folder picker -->
     <script>
         async function pickFolder() {
             try {
-                // ✅ Ask PyQt6 to open folder picker
                 const res = await fetch("/pick-folder");
                 const data = await res.json();
-
                 if (data.path) {
-                    // Show selected path
                     document.getElementById("selected-folder").innerText = data.path;
                     document.getElementById("selected-folder").style.color = "#fff";
-
-                    // ✅ Submit to add-folder endpoint
                     const formData = new FormData();
                     formData.append("path", data.path);
-
-                    const response = await fetch("/add-folder", {
-                        method: "POST",
-                        body: formData
-                    });
-
-                    // ✅ Reload page to show toast
+                    await fetch("/add-folder", { method: "POST", body: formData });
                     window.location.href = "/?msg=success:Folder added successfully";
                 } else {
                     document.getElementById("selected-folder").innerText = "No folder selected";
@@ -475,58 +558,124 @@
             }
         }
     </script>
-    <!-- PROCESSING REPORT MODAL -->
-    <div id="report-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:99999; align-items:center; justify-content:center;">
-        <div style="background:#fff; border-radius:16px; width:520px; max-height:80vh; display:flex; flex-direction:column; overflow:hidden; border:1px solid #e2e8f0;">
-            
-            <!-- Header -->
-            <div style="padding:20px 24px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between;">
-                <div>
-                    <div style="font-size:16px; font-weight:700; color:#0f172a;">📊 Indexing Report</div>
-                    <div style="font-size:12px; color:#64748b; margin-top:2px;" id="report-summary"></div>
-                </div>
-                <button onclick="closeReport()" style="background:#f1f5f9; border:none; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:13px; color:#374151; font-weight:600;">
-                    Close ✕
-                </button>
-            </div>
 
-            <!-- Stats Row -->
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:16px 24px; border-bottom:1px solid #f1f5f9;">
-                <div style="background:#f0fdf4; border-radius:10px; padding:12px 16px; border:1px solid #bbf7d0;">
-                    <div style="font-size:11px; color:#166534; font-weight:600; margin-bottom:4px;">✅ SUCCESSFULLY INDEXED</div>
-                    <div style="font-size:28px; font-weight:700; color:#15803d;" id="success-count">0</div>
-                </div>
-                <div style="background:#fef2f2; border-radius:10px; padding:12px 16px; border:1px solid #fecaca;">
-                    <div style="font-size:11px; color:#991b1b; font-weight:600; margin-bottom:4px;">❌ FAILED</div>
-                    <div style="font-size:28px; font-weight:700; color:#dc2626;" id="failed-count">0</div>
-                </div>
-            </div>
+    <!-- Recent searches -->
+    <script>
+        function setSearch(query) {
+            document.getElementById("search-input").value = query;
+            document.getElementById("search-input").focus();
+        }
+        async function clearSearches() {
+            await fetch("/clear-searches", { method: "POST" });
+            window.location.reload();
+        }
+    </script>
 
-            <!-- File Lists -->
-            <div style="overflow-y:auto; flex:1; padding:16px 24px;">
+    <!-- ============================================================
+         MOBILE SHARE — QR modal + index prompt logic
+    ============================================================ -->
+    <script>
+        // ---- QR Modal ----
+        async function openQRModal() {
+            document.getElementById('qr-modal').style.display = 'flex';
 
-                <!-- Success List -->
-                <div id="success-section">
-                    <div style="font-size:12px; font-weight:600; color:#166534; margin-bottom:8px;">✅ Indexed Successfully</div>
-                    <div id="success-list" style="display:flex; flex-direction:column; gap:4px; margin-bottom:16px;"></div>
-                </div>
+            try {
+                const res = await fetch('/mobile/qr-info');
+                const data = await res.json();
 
-                <!-- Failed List -->
-                <div id="failed-section" style="display:none;">
-                    <div style="font-size:12px; font-weight:600; color:#dc2626; margin-bottom:8px;">❌ Failed Files</div>
-                    <div id="failed-list" style="display:flex; flex-direction:column; gap:4px;"></div>
-                </div>
+                // Load QR library (canvas-based)
+                if (!window.QRCode) {
+                    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/qrcode/1.5.3/qrcode.min.js');
+                }
 
-            </div>
+                const inner = document.getElementById('qr-inner');
+                inner.innerHTML = '';
 
-            <!-- Footer -->
-            <div style="padding:16px 24px; border-top:1px solid #f1f5f9; display:flex; justify-content:flex-end;">
-                <button onclick="closeReport()" style="background:#2563eb; color:#fff; border:none; border-radius:10px; padding:10px 24px; font-size:14px; font-weight:600; cursor:pointer;">
-                    Done
-                </button>
-            </div>
-        </div>
-    </div>
+                // Create canvas manually
+                const canvas = document.createElement('canvas');
+                inner.appendChild(canvas);
+
+                // Render QR into canvas (NO data:image issue)
+                QRCode.toCanvas(canvas, data.url, {
+                    width: 200,
+                    margin: 2,
+                    color: {
+                        dark: '#0f172a',
+                        light: '#ffffff'
+                    }
+                });
+
+                document.getElementById('qr-url-chip').textContent = data.url;
+                document.getElementById('ms-folder-path').textContent = data.folder;
+
+            } catch (e) {
+                document.getElementById('qr-inner').innerHTML =
+                    '<p style="color:#ef4444;font-size:12px;padding:16px;">Failed to load. Is the server running?</p>';
+            }
+        }
+
+        function closeQRModal() {
+            document.getElementById('qr-modal').style.display = 'none';
+        }
+
+        function closeQROnBackdrop(e) {
+            if (e.target.id === 'qr-modal') closeQRModal();
+        }
+
+        function loadScript(src) {
+            return new Promise((resolve, reject) => {
+                const s = document.createElement('script');
+                s.src = src;
+                s.onload = resolve;
+                s.onerror = reject;
+                document.head.appendChild(s);
+            });
+        }
+
+        // ---- Poll for incoming files every 4 seconds ----
+        let _shownIndexPrompt = false;
+
+        setInterval(async () => {
+            try {
+                const res = await fetch('/mobile/pending');
+                const data = await res.json();
+                if (data.active && data.files.length > 0 && !_shownIndexPrompt) {
+                    _shownIndexPrompt = true;
+                    showIndexPrompt(data.files, data.folder);
+                }
+            } catch (e) {}
+        }, 4000);
+
+        function showIndexPrompt(files, folder) {
+            const list = document.getElementById('received-files-list');
+            list.innerHTML = files.map(f =>
+                `<div class="ms-file-row">📄 ${f}</div>`
+            ).join('');
+            document.getElementById('index-modal').dataset.folder = folder;
+            document.getElementById('index-modal').style.display = 'flex';
+        }
+
+        async function indexSharedFolder() {
+            const folder = document.getElementById('index-modal').dataset.folder;
+            document.getElementById('index-modal').style.display = 'none';
+            _shownIndexPrompt = false;
+
+            await fetch('/mobile/dismiss-prompt', { method: 'POST' });
+
+            const form = new FormData();
+            form.append('path', folder);
+            await fetch('/add-folder', { method: 'POST', body: form });
+
+            // Show success using your existing toast system
+            window.location.href = '/?msg=success:Shared files queued for indexing';
+        }
+
+        async function dismissIndexPrompt() {
+            document.getElementById('index-modal').style.display = 'none';
+            _shownIndexPrompt = false;
+            await fetch('/mobile/dismiss-prompt', { method: 'POST' });
+        }
+    </script>
 
 </body>
 </html>

@@ -96,6 +96,63 @@ def status():
         "csv_count": csv_count
     }
 
+def save_search(query: str):
+    """Save search query to DB — max 10 recent searches"""
+    try:
+        conn = sqlite3.connect(DB_LOCATION)
+        cursor = conn.cursor()
+
+        # ✅ Insert or update timestamp if query exists
+        cursor.execute("""
+            INSERT INTO recent_searches (query, searched_at)
+            VALUES (?, CURRENT_TIMESTAMP)
+            ON CONFLICT(query) DO UPDATE SET searched_at = CURRENT_TIMESTAMP
+        """, (query,))
+
+        # ✅ Keep only last 10
+        cursor.execute("""
+            DELETE FROM recent_searches
+            WHERE id NOT IN (
+                SELECT id FROM recent_searches
+                ORDER BY searched_at DESC
+                LIMIT 10
+            )
+        """)
+
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"❌ Error saving search: {e}")
+
+def get_recent_searches():
+    """Get last 10 searches"""
+    try:
+        conn = sqlite3.connect(DB_LOCATION)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT query FROM recent_searches
+            ORDER BY searched_at DESC
+            LIMIT 10
+        """)
+        searches = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        return searches
+    except:
+        return []
+
+def get_folders():
+    """Get watched folders"""
+    try:
+        conn = sqlite3.connect(DB_LOCATION)
+        cursor = conn.cursor()
+        cursor.execute("SELECT path FROM watched_folders")
+        folders = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        return folders
+    except:
+        return []
+
+
 # ---- Routes ----
 @app.get("/")
 def home(request: Request, msg: str = ""):
@@ -113,7 +170,7 @@ def home(request: Request, msg: str = ""):
     return templates.TemplateResponse(
         request=request,
         name="index.html",
-        context={"stats": status(), "msg": msg, "folders": folders}
+        context={"stats": status(), "msg": "", "folders": folders, "recent_searches": get_recent_searches()}
     )
 
 @app.get("/files")
@@ -152,8 +209,11 @@ def search_ui(request: Request,
             return templates.TemplateResponse(
                 request=request,
                 name="index.html",
-                context={"results": [], "count": 0, "stats": status(), "msg": ""}
+                context={"results": [], "stats": status(), "msg": "", "folders": [], "recent_searches": get_recent_searches()}
             )
+
+        # ✅ Save search query to DB
+        save_search(query.strip())
 
         results = search_files(
             query=query,
@@ -164,7 +224,7 @@ def search_ui(request: Request,
         return templates.TemplateResponse(
             request=request,
             name="index.html",
-            context={"results": results, "stats": status(), "msg": ""}
+            context={"results": results, "stats": status(), "msg": "", "folders": get_folders(), "recent_searches": get_recent_searches()}
         )
 
     except Exception as e:
@@ -176,8 +236,20 @@ def search_ui_get(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="index.html",
-        context={"stats": status(), "msg": ""}
+        context={"stats": status(), "msg": "", "folders": get_folders(), "recent_searches": get_recent_searches()}
     )
+
+@app.post("/clear-searches")
+def clear_searches():
+    try:
+        conn = sqlite3.connect(DB_LOCATION)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM recent_searches")
+        conn.commit()
+        conn.close()
+        return {"status": "cleared"}
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.get("/open")
 def open_file(path: str):
@@ -209,14 +281,35 @@ def upload_files(files: List[UploadFile] = File(...)):
     os.makedirs(temp_dir, exist_ok=True)
 
     uploaded = []
+    skipped = []
+
     for file in files:
         filename = file.filename
         ext = os.path.splitext(filename)[1].lower()
 
         if ext not in allowed_ext:
-            print(f"❌ Skipped unsupported file: {filename}")
             continue
 
+        # ✅ Check DB before saving to temp
+        try:
+            conn = sqlite3.connect(DB_LOCATION)
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id FROM files WHERE name = ? AND extension = ?",
+                (filename, ext)
+            )
+            existing = cursor.fetchone()
+            conn.close()
+
+            if existing:
+                print(f"⚠️ Already indexed: {filename}")
+                skipped.append(filename)
+                continue  # ✅ Skip this file entirely
+
+        except Exception as e:
+            print(f"❌ DB check error: {e}")
+
+        # ✅ Only reaches here if file is NOT already indexed
         temp_path = os.path.join(temp_dir, filename)
 
         try:
@@ -231,9 +324,11 @@ def upload_files(files: List[UploadFile] = File(...)):
         except Exception as e:
             print(f"❌ Upload error for {filename}: {e}")
 
-    # ✅ Fixed - return OUTSIDE the loop
+    # ✅ Return outside the loop
     if uploaded:
         msg = quote(f"success: Successfully added: {', '.join(uploaded)}")
+    elif skipped:
+        msg = quote(f"warning: Already indexed: {', '.join(skipped)}")
     else:
         msg = quote("warning: No new files added")
 

@@ -109,7 +109,7 @@ def process_file(file_path, update=False):
 
     # ---- METADATA EXTRACTION ----
     file_name = os.path.basename(file_path)
-    path = file_path
+    path = os.path.normpath(file_path)
     extension = os.path.splitext(file_path)[1].lower()
     size = os.path.getsize(file_path)
     modified_time = int(os.path.getmtime(file_path))
@@ -117,9 +117,19 @@ def process_file(file_path, update=False):
     folder = os.path.normpath(os.path.dirname(path)).replace("\\", "/")
 
     try:
-        # ---- STEP 1: CHECK IF FILE EXISTS ----
+        # ---- STEP 1: CHECK BY EXACT PATH ----
         cursor.execute("SELECT id FROM files WHERE path = ?", (path,))
         result = cursor.fetchone()
+
+        # ---- STEP 2: CHECK BY NAME + EXTENSION (catches temp vs original) ----
+        if not result:
+            cursor.execute(
+                "SELECT id FROM files WHERE name = ? AND extension = ?",
+                (file_name, extension)
+            )
+            result = cursor.fetchone()
+            if result:
+                print(f"⚠️ Already indexed (different path): {file_name}")
 
         # ------------------ UPDATE CASE ------------------
         if result:
@@ -128,14 +138,13 @@ def process_file(file_path, update=False):
             if update:
                 cursor.execute("""
                     UPDATE files
-                    SET name = ?, extension = ?, size = ?, 
+                    SET name = ?, extension = ?, size = ?,
                         modified_time = ?, created_time = ?, folder = ?
                     WHERE id = ?
-                """, (file_name, extension, size, modified_time, created_time, folder, file_id))
-
+                """, (file_name, extension, size, modified_time,
+                      created_time, folder, file_id))
                 conn.commit()
                 print(f"♻️ Updated: {file_name} (ID: {file_id})")
-
             else:
                 print(f"⚠️ Already exists: {file_name} (ID: {file_id})")
 
@@ -143,9 +152,11 @@ def process_file(file_path, update=False):
 
         # ------------------ INSERT CASE ------------------
         cursor.execute(f"""
-            INSERT INTO {FILES_TABLE} (path, name, extension, size, modified_time, created_time, folder)
+            INSERT INTO {FILES_TABLE}
+            (path, name, extension, size, modified_time, created_time, folder)
             VALUES (?, ?, ?, ?, ?, ?, ?)
-        """, (path, file_name, extension, size, modified_time, created_time, folder))
+        """, (path, file_name, extension, size, modified_time,
+              created_time, folder))
 
         conn.commit()
 
@@ -162,6 +173,7 @@ def process_file(file_path, update=False):
 
     finally:
         conn.close()
+
 
 # if __name__ == "__main__":
 #     print("🚀 Script started")

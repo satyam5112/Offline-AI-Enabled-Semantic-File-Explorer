@@ -212,8 +212,13 @@
     </div>
     <script>
         async function openFile(path) {
-            try {
-                const response = await fetch(`/open-native?path=${encodeURIComponent(path)}`);
+             try {
+                const fixedPath = path.replace(/\//g, "\\");
+                console.log("Opening:", fixedPath);
+                
+                const response = await fetch(
+                    `/open-native?path=${encodeURIComponent(fixedPath)}`
+                );
                 const data = await response.json();
                 if (data.error) {
                     alert('❌ Could not open file: ' + data.error);
@@ -224,7 +229,7 @@
         }
     </script>
     <!-- PROGRESS TRACKER -->
-    <script>
+    <!-- <script>
         setInterval(async () => {
             try {
                 const res = await fetch("/progress");
@@ -316,7 +321,7 @@
             // ✅ Refresh page to update stats
             window.location.reload();
         }
-    </script>
+    </script> -->
     <!-- PROCESSING REPORT MODAL -->
     <div id="report-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:99999; align-items:center; justify-content:center;">
         <div style="background:#fff; border-radius:16px; width:520px; max-height:80vh; display:flex; flex-direction:column; overflow:hidden; border:1px solid #e2e8f0;">
