@@ -211,7 +211,7 @@
                             {% else %}📄{% endif %}
                         </div>
                         <div style="flex:1; min-width:0;">
-                            <div class="result-name">{{ f.name }}</div>
+                            <div class="result-name" style="color:#e2e8f0;">{{ f.name }}</div>
                             <div class="vault-file-meta">
                                 🔐 Encrypted &nbsp;·&nbsp;
                                 {% if f.size %}{{ "%.1f"|format(f.size / 1024) }} KB{% endif %}
@@ -253,15 +253,12 @@
                 <div class="side-card vault-add-card">
                     <div class="side-title">🔐 Add File to Vault</div>
                     <p style="font-size:12px; color:#64748b; margin-bottom:14px; line-height:1.6;">
-                        Select a file to encrypt and hide. It will be removed from normal search.
+                        Select a file to encrypt. Original will be permanently deleted from disk.
                     </p>
-                    <div class="vault-drop-zone" onclick="document.getElementById('vault-file-input').click()">
-                        <input type="file" id="vault-file-input" style="display:none"
-                            accept=".txt,.pdf,.jpg,.jpeg,.png,.csv,.docx"
-                            onchange="handleVaultFileSelect(this)"/>
+                    <div class="vault-drop-zone" onclick="pickVaultFileNative()">
                         <div style="font-size:32px; margin-bottom:8px;">🔒</div>
                         <div style="font-weight:600; color:#374151; font-size:13px;">Click to choose file</div>
-                        <div style="font-size:11px; color:#94a3b8; margin-top:4px;">PDF · TXT · JPG · PNG · CSV</div>
+                        <div style="font-size:11px; color:#94a3b8; margin-top:4px;">Opens native file picker</div>
                     </div>
                     <div id="vault-selected-file" class="vault-selected-display" style="display:none;">
                         <span id="vault-selected-name"></span>
@@ -270,27 +267,12 @@
                         <input type="password" id="vault-add-pw" class="vault-pw-input"
                             placeholder="Confirm password to encrypt"/>
                     </div>
-                    <button class="btn-upload" onclick="addSelectedToVault()" id="vault-add-btn" disabled>
+                    <button class="btn-upload" onclick="addPickedToVault()" id="vault-add-btn" disabled>
                         🔐 Encrypt & Add to Vault
                     </button>
                 </div>
 
-                <!-- Or add from indexed files -->
-                <div class="side-card">
-                    <div class="side-title">📂 Add from Indexed Files</div>
-                    <p style="font-size:12px; color:#64748b; margin-bottom:14px; line-height:1.6;">
-                        Move an already-indexed file into the vault.
-                    </p>
-                    <input type="text" id="vault-path-input" class="search-input"
-                        placeholder="Paste file path here..."
-                        style="margin-bottom:10px; width:100%; font-size:12px;"/>
-                    <input type="password" id="vault-path-pw" class="vault-pw-input"
-                        placeholder="Confirm password"/>
-                    <button class="btn-upload" style="margin-top:10px;"
-                        onclick="addPathToVault()">
-                        🔐 Move to Vault
-                    </button>
-                </div>
+
             </div>
         </div>
 
@@ -308,26 +290,24 @@
                 <h2 class="ms-title">Change Password</h2>
                 <p class="ms-sub">You can change your password any time</p>
             </div>
-            <div style="display:flex; flex-direction:column; gap:10px;">
-                <input type="password" id="cpw-current" class="vault-pw-input"
-                    placeholder="Current password"/>
-                <input type="password" id="cpw-new" class="vault-pw-input"
-                    placeholder="New password"/>
-                <input type="password" id="cpw-confirm" class="vault-pw-input"
-                    placeholder="Confirm new password"/>
-            </div>
-            <div id="cpw-error" style="display:none; margin-top:10px;
-                background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3);
-                border-radius:8px; padding:8px 12px; font-size:12px; color:#ef4444;">
-            </div>
-            <div class="ms-actions" style="margin-top:16px;">
-                <button class="btn-primary" style="flex:1;" onclick="submitChangePassword()">
-                    ✅ Update Password
-                </button>
-                <button type="button" class="ms-btn-no" onclick="closeChangePwModal()">
-                    Cancel
-                </button>
-            </div>
+            <form method="post" action="/vault/change-password">
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                    <input type="password" name="current_password" class="vault-pw-input"
+                        placeholder="Current password" required/>
+                    <input type="password" name="new_password" class="vault-pw-input"
+                        placeholder="New password" required/>
+                    <input type="password" name="confirm_password" class="vault-pw-input"
+                        placeholder="Confirm new password" required/>
+                </div>
+                <div class="ms-actions" style="margin-top:16px;">
+                    <button type="submit" class="btn-primary" style="flex:1;">
+                        ✅ Update Password
+                    </button>
+                    <button type="button" class="ms-btn-no" onclick="closeChangePwModal()">
+                        Cancel
+                    </button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -363,67 +343,14 @@
     <script>
     // ── Change password modal ──────────────────────────────────────────────
     function openChangePwModal() {
-    
-    document.getElementById('cpw-current').value = '';
-    document.getElementById('cpw-new').value = '';
-    document.getElementById('cpw-confirm').value = '';
-    document.getElementById('cpw-error').style.display = 'none';
-    document.getElementById('change-pw-modal').style.display = 'flex';
-    setTimeout(() => document.getElementById('cpw-current').focus(), 80);
-}
-function closeChangePwModal() {
-    document.getElementById('change-pw-modal').style.display = 'none';
-}
-function closePwModalOnBackdrop(e) {
-    if (e.target.id === 'change-pw-modal') closeChangePwModal();
-}
-
-async function submitChangePassword() {
-    const current = document.getElementById('cpw-current').value;
-    const newPw   = document.getElementById('cpw-new').value;
-    const confirm = document.getElementById('cpw-confirm').value;
-    const errBox  = document.getElementById('cpw-error');
-    errBox.style.display = 'none';
-
-    if (!current || !newPw || !confirm) {
-        errBox.textContent = 'All fields are required.';
-        errBox.style.display = 'block';
-        return;
+        document.getElementById('change-pw-modal').style.display = 'flex';
     }
-    if (newPw !== confirm) {
-        errBox.textContent = 'New passwords do not match.';
-        errBox.style.display = 'block';
-        return;
+    function closeChangePwModal() {
+        document.getElementById('change-pw-modal').style.display = 'none';
     }
-
-    const btn = document.querySelector('#change-pw-modal .btn-primary');
-    btn.disabled = true;
-    btn.textContent = 'Saving...';
-
-    try {
-        const form = new FormData();
-        form.append('current_password', current);
-        form.append('new_password', newPw);
-        form.append('confirm_password', confirm);
-
-        const res = await fetch('/vault/change-password', { method: 'POST', body: form });
-        const data = await res.json();
-
-        if (data.success) {
-            closeChangePwModal();
-            showVaultToast('✅ Password changed successfully', 'success');
-        } else {
-            errBox.textContent = '❌ ' + data.error;
-            errBox.style.display = 'block';
-        }
-    } catch (e) {
-        errBox.textContent = '❌ Request failed. Try again.';
-        errBox.style.display = 'block';
-    } finally {
-        btn.disabled = false;
-        btn.textContent = '✅ Update Password';
+    function closePwModalOnBackdrop(e) {
+        if (e.target.id === 'change-pw-modal') closeChangePwModal();
     }
-}
 
     // ── Vault confirm modal ────────────────────────────────────────────────
     let _pendingAction = null;
@@ -522,39 +449,45 @@ async function submitChangePassword() {
         });
     }
 
-    // ── Add file via file picker ───────────────────────────────────────────
-    let _selectedVaultFile = null;
+    // ── Add file via NATIVE picker (gets real disk path) ─────────────────
+    let _vaultPickedPath = null;
 
-    function handleVaultFileSelect(input) {
-        if (!input.files.length) return;
-        _selectedVaultFile = input.files[0];
-        document.getElementById('vault-selected-name').textContent = _selectedVaultFile.name;
-        document.getElementById('vault-selected-file').style.display = 'flex';
-        document.getElementById('vault-add-btn').disabled = false;
+    async function pickVaultFileNative() {
+        try {
+            const res = await fetch('/pick-files');
+            const data = await res.json();
+
+            if (!data.paths || data.paths.length === 0) return;
+
+            // Take first selected file only
+            _vaultPickedPath = data.paths[0];
+            const name = _vaultPickedPath.split('\\').pop() || _vaultPickedPath.split('/').pop();
+
+            document.getElementById('vault-selected-name').textContent = name;
+            document.getElementById('vault-selected-file').style.display = 'flex';
+            document.getElementById('vault-add-btn').disabled = false;
+
+        } catch(e) {
+            showVaultToast('❌ Failed to open file picker', 'error');
+        }
     }
 
-    async function addSelectedToVault() {
-        if (!_selectedVaultFile) return;
+    async function addPickedToVault() {
+        if (!_vaultPickedPath) return;
         const pw = document.getElementById('vault-add-pw').value.trim();
         if (!pw) { showVaultToast('❌ Enter your vault password', 'error'); return; }
 
-        // Upload file first then vault it
-        const uploadForm = new FormData();
-        uploadForm.append('files', _selectedVaultFile);
-
-        showVaultToast('⏳ Uploading...', 'info');
+        showVaultToast('⏳ Encrypting...', 'info');
 
         try {
-            // Use the file's temp path after upload — simpler: just upload directly
-            const res = await fetch('/upload', { method: 'POST', body: uploadForm });
-            // After upload, the file is in temp dir — add via path
-            // Actually use the vault/add endpoint with the file directly
-            const vaultForm = new FormData();
-            vaultForm.append('file', _selectedVaultFile);
-            vaultForm.append('password', pw);
+            // Use the path-based vault/add — works with real disk path
+            // This encrypts the file AND deletes the original from disk
+            const form = new FormData();
+            form.append('file_path', _vaultPickedPath);
+            form.append('password', pw);
 
-            const vRes = await fetch('/vault/add-upload', { method: 'POST', body: vaultForm });
-            const data = await vRes.json();
+            const res = await fetch('/vault/add', { method: 'POST', body: form });
+            const data = await res.json();
 
             if (data.success) {
                 showVaultToast('✅ ' + data.message, 'success');
@@ -563,36 +496,16 @@ async function submitChangePassword() {
                 showVaultToast('❌ ' + data.error, 'error');
             }
         } catch(e) {
-            showVaultToast('❌ Upload failed', 'error');
+            showVaultToast('❌ Encryption failed', 'error');
         }
     }
 
-    async function addPathToVault() {
-        const path = document.getElementById('vault-path-input').value.trim();
-        const pw = document.getElementById('vault-path-pw').value.trim();
-        if (!path) { showVaultToast('❌ Enter a file path', 'error'); return; }
-        if (!pw) { showVaultToast('❌ Enter your vault password', 'error'); return; }
 
-        const form = new FormData();
-        form.append('file_path', path);
-        form.append('password', pw);
 
-        const res = await fetch('/vault/add', { method: 'POST', body: form });
-        const data = await res.json();
-
-        if (data.success) {
-            showVaultToast('✅ ' + data.message, 'success');
-            setTimeout(() => window.location.reload(), 1500);
-        } else {
-            showVaultToast('❌ ' + data.error, 'error');
-        }
-    }
-
-    // ── NOTE: beforeunload lock removed — it was firing /vault/lock on every
-    // ── form submit (page navigation), destroying the session before the
-    // ── change-password POST arrived. Password changes now use fetch() so
-    // ── no page navigation happens at all. Lock is only triggered by the
-    // ── explicit "Lock Vault" button.
+    // ── Lock on navigation away ────────────────────────────────────────────
+    window.addEventListener('beforeunload', () => {
+        navigator.sendBeacon('/vault/lock', '');
+    });
 
     // ── Toast ─────────────────────────────────────────────────────────────
     function showVaultToast(msg, type='success') {
@@ -607,7 +520,6 @@ async function submitChangePassword() {
         setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 3500);
     }
 
-    // ── Lock screen shake on wrong password ───────────────────────────────
     </script>
     {% if error %}
     <script>

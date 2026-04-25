@@ -795,6 +795,98 @@ async def vault_add_upload(file: UploadFile = File(...), password: str = Form(..
         except Exception:
             pass
 
+
+@app.get("/pick-files")
+def pick_files_dialog():
+    """
+    Opens a native Windows file picker.
+    Returns actual disk paths — no file copying needed.
+    """
+    try:
+        result = subprocess.run([
+            "powershell", "-Command",
+            """
+            Add-Type -AssemblyName System.Windows.Forms
+            $dialog = New-Object System.Windows.Forms.OpenFileDialog
+            $dialog.Title = 'Select files to index'
+            $dialog.Filter = 'Supported Files|*.txt;*.pdf;*.jpg;*.jpeg;*.png;*.csv|All Files|*.*'
+            $dialog.Multiselect = $true
+            $dialog.InitialDirectory = [Environment]::GetFolderPath('Desktop')
+            if ($dialog.ShowDialog() -eq 'OK') {
+                $dialog.FileNames -join '|'
+            }
+            """
+        ], capture_output=True, text=True, timeout=60)
+
+        raw = result.stdout.strip()
+        if raw:
+            paths = [p.strip() for p in raw.split('|') if p.strip()]
+            return {"paths": paths}
+        return {"paths": []}
+
+    except Exception as e:
+        return {"paths": [], "error": str(e)}
+
+
+@app.post("/index-files-by-path")
+def index_files_by_path(request: Request, paths: str = Form(...)):
+    """
+    Index files by their actual disk paths — no copying.
+    paths is a pipe-separated list of absolute file paths.
+    """
+    allowed_ext = {".txt", ".pdf", ".jpg", ".jpeg", ".png", ".csv"}
+    file_paths = [p.strip() for p in paths.split('|') if p.strip()]
+
+    uploaded = []
+    skipped = []
+
+    for file_path in file_paths:
+        if not os.path.exists(file_path):
+            print(f"⚠️ File not found: {file_path}")
+            continue
+
+        filename = os.path.basename(file_path)
+        ext = os.path.splitext(filename)[1].lower()
+
+        if ext not in allowed_ext:
+            continue
+
+        # Check if already indexed
+        try:
+            conn = sqlite3.connect(DB_LOCATION)
+            cursor = conn.cursor()
+            cursor.execute(
+                "SELECT id FROM files WHERE path = ?",
+                (os.path.normpath(file_path),)
+            )
+            existing = cursor.fetchone()
+            conn.close()
+
+            if existing:
+                print(f"⚠️ Already indexed: {filename}")
+                skipped.append(filename)
+                continue
+
+        except Exception as e:
+            print(f"❌ DB check error: {e}")
+
+        # Queue the actual disk path — no copying
+        norm_path = os.path.normpath(file_path)
+        if norm_path not in queued_files:
+            queued_files.add(norm_path)
+            file_queue.put(("create", norm_path))
+            uploaded.append(filename)
+            print(f"✅ Queued for indexing: {norm_path}")
+
+    if uploaded:
+        msg = quote(f"success: Successfully added: {', '.join(uploaded)}")
+    elif skipped:
+        msg = quote(f"warning: Already indexed: {', '.join(skipped)}")
+    else:
+        msg = quote("warning: No new files added")
+
+    return RedirectResponse(url=f"/?msg={msg}", status_code=303)
+
 @app.get("/pick-folder")
 def pick_folder_dialog():
     try:
@@ -802,11 +894,22 @@ def pick_folder_dialog():
             "powershell", "-Command",
             """
             Add-Type -AssemblyName System.Windows.Forms
-            $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
-            $dialog.Description = 'Select folder to index'
-            $dialog.ShowNewFolderButton = $false
+            Add-Type -AssemblyName System.Drawing
+
+            $app = [System.Windows.Forms.Application]
+            $app::EnableVisualStyles()
+
+            $dialog = New-Object System.Windows.Forms.OpenFileDialog
+            $dialog.Title = 'Select folder to index'
+            $dialog.Filter = 'Folder|*.none'
+            $dialog.CheckFileExists = $false
+            $dialog.CheckPathExists = $true
+            $dialog.FileName = 'Select Folder'
+            $dialog.ValidateNames = $false
+            $dialog.Multiselect = $false
+
             if ($dialog.ShowDialog() -eq 'OK') {
-                Write-Output $dialog.SelectedPath
+                Split-Path $dialog.FileName -Parent
             }
             """
         ], capture_output=True, text=True, timeout=60)
@@ -819,4 +922,3 @@ def pick_folder_dialog():
 
     except Exception as e:
         return {"path": None, "error": str(e)}
-        
