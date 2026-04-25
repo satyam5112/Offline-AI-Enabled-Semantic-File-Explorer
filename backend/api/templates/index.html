@@ -103,11 +103,6 @@
                 <div class="stat-value">{{ stats.total_vectors if stats else '—' }}</div>
             </div>
             <div class="stat-card">
-                <div class="stat-icon">📂</div>
-                <div class="stat-label">Folders</div>
-                <div class="stat-value">4</div>
-            </div>
-            <div class="stat-card">
                 <div class="stat-icon">🔎</div>
                 <div class="stat-label">Results Found</div>
                 <div class="stat-value">{{ results | length if results else '0' }}</div>
@@ -211,26 +206,33 @@
 
             <!-- SIDEBAR PANELS -->
             <div>
-                <!-- UPLOAD -->
+                <!-- ADD FILES — native picker, stores actual disk path -->
                 <div class="side-card">
                     <div class="side-title">📁 Add Files</div>
-                    <form action="/upload" method="post" enctype="multipart/form-data">
-                        <label class="upload-zone" for="file-input">
-                            <div style="font-size:28px; margin-bottom:8px;">☁️</div>
-                            <div style="font-weight:600; color:#374151; margin-bottom:4px;">
-                                Drop files here
-                            </div>
-                            <div id="file-label">or click to browse</div>
-                            <div style="margin-top:8px; font-size:11px; color:#94a3b8;">
-                                .txt &nbsp;·&nbsp; .pdf &nbsp;·&nbsp; .jpg &nbsp;·&nbsp; .png &nbsp;·&nbsp; .csv
-                            </div>
-                        </label>
-                        <input type="file" id="file-input" name="files" multiple
-                               accept=".txt,.pdf,.jpg,.jpeg,.png,.csv"
-                               style="display:none;"
-                               onchange="updateLabel(this)">
-                        <button class="btn-upload" type="submit">+ Add Files</button>
-                    </form>
+                    <div class="upload-zone" onclick="pickFilesNative()" style="cursor:pointer;">
+                        <div style="font-size:28px; margin-bottom:8px;">📂</div>
+                        <div style="font-weight:600; color:#374151; margin-bottom:4px;">
+                            Click to browse files
+                        </div>
+                        <div style="font-size:12px; color:#94a3b8;">Opens native file picker</div>
+                        <div style="margin-top:8px; font-size:11px; color:#94a3b8;">
+                            .txt &nbsp;·&nbsp; .pdf &nbsp;·&nbsp; .jpg &nbsp;·&nbsp; .png &nbsp;·&nbsp; .csv
+                        </div>
+                    </div>
+                    <div id="picked-files-list" style="
+                        display:none; margin-bottom:10px;
+                        background:#f8fafc; border:1px solid #e2e8f0;
+                        border-radius:8px; padding:8px 12px;
+                        font-size:12px; color:#374151;
+                        max-height:100px; overflow-y:auto;
+                    "></div>
+                    <button class="btn-upload" id="add-files-btn"
+                        onclick="indexPickedFiles()" style="display:none;">
+                        + Index Selected Files
+                    </button>
+                    <div style="margin-top:8px; font-size:11px; color:#94a3b8;">
+                        Files indexed from their original location — no copying
+                    </div>
                 </div>
 
                 <!-- ✅ SHARE FROM PHONE — new card -->
@@ -297,27 +299,6 @@
                     </button>
                     <div style="margin-top:8px; font-size:11px; color:#94a3b8;">
                         Scan + Watch folder for changes
-                    </div>
-                </div>
-
-                <!-- FILE TYPE BREAKDOWN -->
-                <div class="side-card">
-                    <div class="side-title">📊 File Types</div>
-                    <div class="meta-row">
-                        <span>📄 Text Files</span>
-                        <span class="meta-count">{{ stats.txt_count if stats else '—' }}</span>
-                    </div>
-                    <div class="meta-row">
-                        <span>📕 PDF Files</span>
-                        <span class="meta-count">{{ stats.pdf_count if stats else '—' }}</span>
-                    </div>
-                    <div class="meta-row">
-                        <span>🖼️ Image Files</span>
-                        <span class="meta-count">{{ stats.img_count if stats else '—' }}</span>
-                    </div>
-                    <div class="meta-row">
-                        <span>📊 CSV Files</span>
-                        <span class="meta-count">{{ stats.csv_count if stats else '—' }}</span>
                     </div>
                 </div>
             </div>
@@ -445,15 +426,50 @@
          SCRIPTS
     ============================================================ -->
 
-    <!-- Notification poller -->
+    <!-- Native file picker + notification poller -->
     <script>
-        function updateLabel(input) {
-            const label = document.getElementById('file-label');
-            if (input.files.length > 0) {
-                label.textContent = input.files.length === 1
-                    ? input.files[0].name
-                    : `${input.files.length} files selected`;
+        let _pickedPaths = [];
+
+        async function pickFilesNative() {
+            try {
+                const res = await fetch('/pick-files');
+                const data = await res.json();
+
+                if (!data.paths || data.paths.length === 0) {
+                    document.getElementById('picked-files-list').style.display = 'none';
+                    document.getElementById('add-files-btn').style.display = 'none';
+                    return;
+                }
+
+                _pickedPaths = data.paths;
+
+                // Show list of selected files
+                const listEl = document.getElementById('picked-files-list');
+                listEl.innerHTML = _pickedPaths.map(p => {
+                    const name = p.split('\\').pop() || p.split('/').pop();
+                    return `<div style="padding:2px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">📄 ${name}</div>`;
+                }).join('');
+                listEl.style.display = 'block';
+                document.getElementById('add-files-btn').style.display = 'block';
+
+            } catch(e) {
+                alert('❌ Failed to open file picker');
             }
+        }
+
+        async function indexPickedFiles() {
+            if (!_pickedPaths.length) return;
+
+            const form = new FormData();
+            form.append('paths', _pickedPaths.join('|'));
+
+            const res = await fetch('/index-files-by-path', {
+                method: 'POST',
+                body: form
+            });
+
+            // Server redirects with msg — follow it
+            window.location.href = res.url;
         }
 
         setInterval(async () => {

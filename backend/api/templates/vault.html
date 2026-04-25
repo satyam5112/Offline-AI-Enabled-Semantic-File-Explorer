@@ -113,8 +113,9 @@
                     </div>
                 </form>
 
+                {% if is_default_password %}
                 <p class="lock-hint">Default password: <code>1234</code></p>
-
+                {% endif %}
                 <!-- Stats shown even when locked -->
                 <div class="lock-stats">
                     <div class="lock-stat">
