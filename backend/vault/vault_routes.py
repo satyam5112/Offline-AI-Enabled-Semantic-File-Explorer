@@ -104,25 +104,24 @@ def vault_change_password(
     new_password: str = Form(...),
     confirm_password: str = Form(...)
 ):
-    if not _is_unlocked(request):
-        return RedirectResponse(url="/vault", status_code=303)
-
     if new_password != confirm_password:
-        return RedirectResponse(
-            url=f"/vault?msg=error:Passwords do not match",
-            status_code=303
+        return JSONResponse(
+            {"success": False, "error": "New passwords do not match"},
+            status_code=400
+        )
+
+    if len(new_password.strip()) < 1:
+        return JSONResponse(
+            {"success": False, "error": "New password cannot be empty"},
+            status_code=400
         )
 
     result = change_password(current_password, new_password)
+
     if result["success"]:
-        return RedirectResponse(
-            url=f"/vault?msg=success:Password changed successfully",
-            status_code=303
-        )
-    return RedirectResponse(
-        url=f"/vault?msg=error:{quote(result['error'])}",
-        status_code=303
-    )
+        return JSONResponse({"success": True, "message": "Password changed successfully"})
+
+    return JSONResponse({"success": False, "error": result["error"]}, status_code=400)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════

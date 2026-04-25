@@ -307,24 +307,26 @@
                 <h2 class="ms-title">Change Password</h2>
                 <p class="ms-sub">You can change your password any time</p>
             </div>
-            <form method="post" action="/vault/change-password">
-                <div style="display:flex; flex-direction:column; gap:10px;">
-                    <input type="password" name="current_password" class="vault-pw-input"
-                        placeholder="Current password" required/>
-                    <input type="password" name="new_password" class="vault-pw-input"
-                        placeholder="New password" required/>
-                    <input type="password" name="confirm_password" class="vault-pw-input"
-                        placeholder="Confirm new password" required/>
-                </div>
-                <div class="ms-actions" style="margin-top:16px;">
-                    <button type="submit" class="btn-primary" style="flex:1;">
-                        ✅ Update Password
-                    </button>
-                    <button type="button" class="ms-btn-no" onclick="closeChangePwModal()">
-                        Cancel
-                    </button>
-                </div>
-            </form>
+            <div style="display:flex; flex-direction:column; gap:10px;">
+                <input type="password" id="cpw-current" class="vault-pw-input"
+                    placeholder="Current password"/>
+                <input type="password" id="cpw-new" class="vault-pw-input"
+                    placeholder="New password"/>
+                <input type="password" id="cpw-confirm" class="vault-pw-input"
+                    placeholder="Confirm new password"/>
+            </div>
+            <div id="cpw-error" style="display:none; margin-top:10px;
+                background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3);
+                border-radius:8px; padding:8px 12px; font-size:12px; color:#ef4444;">
+            </div>
+            <div class="ms-actions" style="margin-top:16px;">
+                <button class="btn-primary" style="flex:1;" onclick="submitChangePassword()">
+                    ✅ Update Password
+                </button>
+                <button type="button" class="ms-btn-no" onclick="closeChangePwModal()">
+                    Cancel
+                </button>
+            </div>
         </div>
     </div>
 
@@ -360,14 +362,67 @@
     <script>
     // ── Change password modal ──────────────────────────────────────────────
     function openChangePwModal() {
-        document.getElementById('change-pw-modal').style.display = 'flex';
+    
+    document.getElementById('cpw-current').value = '';
+    document.getElementById('cpw-new').value = '';
+    document.getElementById('cpw-confirm').value = '';
+    document.getElementById('cpw-error').style.display = 'none';
+    document.getElementById('change-pw-modal').style.display = 'flex';
+    setTimeout(() => document.getElementById('cpw-current').focus(), 80);
+}
+function closeChangePwModal() {
+    document.getElementById('change-pw-modal').style.display = 'none';
+}
+function closePwModalOnBackdrop(e) {
+    if (e.target.id === 'change-pw-modal') closeChangePwModal();
+}
+
+async function submitChangePassword() {
+    const current = document.getElementById('cpw-current').value;
+    const newPw   = document.getElementById('cpw-new').value;
+    const confirm = document.getElementById('cpw-confirm').value;
+    const errBox  = document.getElementById('cpw-error');
+    errBox.style.display = 'none';
+
+    if (!current || !newPw || !confirm) {
+        errBox.textContent = 'All fields are required.';
+        errBox.style.display = 'block';
+        return;
     }
-    function closeChangePwModal() {
-        document.getElementById('change-pw-modal').style.display = 'none';
+    if (newPw !== confirm) {
+        errBox.textContent = 'New passwords do not match.';
+        errBox.style.display = 'block';
+        return;
     }
-    function closePwModalOnBackdrop(e) {
-        if (e.target.id === 'change-pw-modal') closeChangePwModal();
+
+    const btn = document.querySelector('#change-pw-modal .btn-primary');
+    btn.disabled = true;
+    btn.textContent = 'Saving...';
+
+    try {
+        const form = new FormData();
+        form.append('current_password', current);
+        form.append('new_password', newPw);
+        form.append('confirm_password', confirm);
+
+        const res = await fetch('/vault/change-password', { method: 'POST', body: form });
+        const data = await res.json();
+
+        if (data.success) {
+            closeChangePwModal();
+            showVaultToast('✅ Password changed successfully', 'success');
+        } else {
+            errBox.textContent = '❌ ' + data.error;
+            errBox.style.display = 'block';
+        }
+    } catch (e) {
+        errBox.textContent = '❌ Request failed. Try again.';
+        errBox.style.display = 'block';
+    } finally {
+        btn.disabled = false;
+        btn.textContent = '✅ Update Password';
     }
+}
 
     // ── Vault confirm modal ────────────────────────────────────────────────
     let _pendingAction = null;
@@ -532,10 +587,11 @@
         }
     }
 
-    // ── Lock on navigation away ────────────────────────────────────────────
-    window.addEventListener('beforeunload', () => {
-        navigator.sendBeacon('/vault/lock', '');
-    });
+    // ── NOTE: beforeunload lock removed — it was firing /vault/lock on every
+    // ── form submit (page navigation), destroying the session before the
+    // ── change-password POST arrived. Password changes now use fetch() so
+    // ── no page navigation happens at all. Lock is only triggered by the
+    // ── explicit "Lock Vault" button.
 
     // ── Toast ─────────────────────────────────────────────────────────────
     function showVaultToast(msg, type='success') {
