@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocS AI — Vault</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="stylesheet" href="/static/vault.css">
+</head>
+<body class="vault-body">
+
+    {% if msg %}
+    <div id="toast" class="toast
+        {% if msg.startswith('success') %}toast-success
+        {% elif msg.startswith('error') %}toast-error
+        {% else %}toast-warning{% endif %}">
+        {{ msg.split(':', 1)[1] if ':' in msg else msg }}
+    </div>
+    <script>
+        setTimeout(() => {
+            const t = document.getElementById('toast');
+            if (t) { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }
+        }, 4000);
+    </script>
+    {% endif %}
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar">
+        <div class="logo" style="display:flex; align-items:center; gap:8px;">Menu</div>
+        <nav>
+            <a href="/" class="nav-item">🔍 Search</a>
+            <a href="/files" class="nav-item">📁 My Files</a>
+            <a href="/vault" class="nav-item active">🔒 Vault</a>
+        </nav>
+        <div class="sidebar-bottom">
+            <button class="btn-reset-nav" onclick="showResetModal()">🗑️ Reset Database</button>
+            <div id="reset-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center;">
+                <div style="background:#1e293b; border-radius:16px; padding:32px; width:380px; border:1px solid #334155; text-align:center;">
+                    <div style="font-size:40px; margin-bottom:16px;">⚠️</div>
+                    <div style="color:#fff; font-size:18px; font-weight:700; margin-bottom:8px;">Reset Database?</div>
+                    <div style="color:#94a3b8; font-size:13px; margin-bottom:24px; line-height:1.6;">This will permanently delete all indexed files and vectors. This action cannot be undone.</div>
+                    <div style="display:flex; gap:12px; justify-content:center;">
+                        <button onclick="document.getElementById('reset-modal').style.display='none'"
+                            style="padding:10px 24px; border-radius:10px; border:1px solid #334155; background:transparent; color:#94a3b8; font-size:14px; font-weight:600; cursor:pointer;">Cancel</button>
+                        <form method="post" action="/reset" style="margin:0;">
+                            <button type="submit" style="padding:10px 24px; border-radius:10px; border:none; background:#dc2626; color:#fff; font-size:14px; font-weight:600; cursor:pointer;">Yes, Reset</button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <script>
+                function showResetModal() { document.getElementById('reset-modal').style.display = 'flex'; }
+                document.getElementById('reset-modal').addEventListener('click', function(e) { if (e.target === this) this.style.display = 'none'; });
+            </script>
+        </div>
+    </aside>
+
+    <!-- MAIN -->
+    <main class="main vault-main">
+
+        {% if not unlocked %}
+        <!-- ═══════════════════════════════════════════════
+             LOCK SCREEN
+        ═══════════════════════════════════════════════ -->
+        <div class="lock-screen">
+            <div class="lock-card">
+
+                <!-- Animated lock icon -->
+                <div class="lock-icon-wrap" id="lock-icon-wrap">
+                    <svg class="lock-svg" viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="16" y="36" width="48" height="34" rx="8" fill="url(#lg1)"/>
+                        <path class="shackle" d="M26 36V28C26 19.16 33.16 12 42 12C50.84 12 58 19.16 58 28V36" stroke="url(#lg2)" stroke-width="5" stroke-linecap="round"/>
+                        <circle cx="40" cy="53" r="5" fill="white" fill-opacity="0.9"/>
+                        <rect x="38" y="53" width="4" height="8" rx="2" fill="white" fill-opacity="0.9"/>
+                        <defs>
+                            <linearGradient id="lg1" x1="16" y1="36" x2="64" y2="70" gradientUnits="userSpaceOnUse">
+                                <stop stop-color="#6366f1"/>
+                                <stop offset="1" stop-color="#8b5cf6"/>
+                            </linearGradient>
+                            <linearGradient id="lg2" x1="26" y1="12" x2="58" y2="36" gradientUnits="userSpaceOnUse">
+                                <stop stop-color="#a78bfa"/>
+                                <stop offset="1" stop-color="#6366f1"/>
+                            </linearGradient>
+                        </defs>
+                    </svg>
+                </div>
+
+                <h1 class="lock-title">Hidden Vault</h1>
+                <p class="lock-sub">Your encrypted personal storage</p>
+
+                {% if error %}
+                <div class="lock-error">
+                    ❌ {{ error }}
+                </div>
+                {% endif %}
+
+                <!-- Password form -->
+                <form method="post" action="/vault/unlock" class="lock-form" id="lock-form">
+                    <div class="pin-row" id="pin-row">
+                        <input class="pin-input" type="password" name="password"
+                            id="pin-input" maxlength="32"
+                            placeholder="Enter password"
+                            autocomplete="current-password"
+                            autofocus/>
+                        <button type="submit" class="pin-submit" id="pin-submit">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                                <path d="M5 12H19M13 6L19 12L13 18" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+                            </svg>
+                        </button>
+                    </div>
+                </form>
+
+                <p class="lock-hint">Default password: <code>1234</code></p>
+
+                <!-- Stats shown even when locked -->
+                <div class="lock-stats">
+                    <div class="lock-stat">
+                        <span class="lock-stat-val">{{ stats.total_files }}</span>
+                        <span class="lock-stat-label">Files</span>
+                    </div>
+                    <div class="lock-stat-divider"></div>
+                    <div class="lock-stat">
+                        <span class="lock-stat-val">{{ stats.total_size_mb }}</span>
+                        <span class="lock-stat-label">MB</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        {% else %}
+        <!-- ═══════════════════════════════════════════════
+             VAULT CONTENTS (UNLOCKED)
+        ═══════════════════════════════════════════════ -->
+
+        <!-- Top bar -->
+        <div class="topbar">
+            <div>
+                <h1 class="page-title" style="display:flex; align-items:center; gap:10px;">
+                    <span class="vault-unlocked-icon">🔓</span> Hidden Vault
+                </h1>
+                <p class="page-sub">Your files are encrypted and hidden from search</p>
+            </div>
+            <div style="display:flex; gap:10px; align-items:center;">
+                {% if stats.is_default_password %}
+                <div class="default-pw-warning">
+                    ⚠️ Using default password — <button onclick="openChangePwModal()" class="inline-link">change it</button>
+                </div>
+                {% endif %}
+                <button class="vault-action-btn vault-btn-secondary" onclick="openChangePwModal()">
+                    🔑 Change Password
+                </button>
+                <form method="post" action="/vault/lock" style="margin:0;">
+                    <button type="submit" class="vault-action-btn vault-btn-lock">
+                        🔒 Lock Vault
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Stats row -->
+        <div class="stats-row" style="margin-bottom:24px;">
+            <div class="stat-card vault-stat">
+                <div class="stat-icon">🔐</div>
+                <div class="stat-label">Encrypted Files</div>
+                <div class="stat-value">{{ stats.total_files }}</div>
+            </div>
+            <div class="stat-card vault-stat">
+                <div class="stat-icon">💾</div>
+                <div class="stat-label">Vault Size</div>
+                <div class="stat-value">{{ stats.total_size_mb }}<span style="font-size:14px; color:#64748b;"> MB</span></div>
+            </div>
+            <div class="stat-card vault-stat">
+                <div class="stat-icon">🛡️</div>
+                <div class="stat-label">Encryption</div>
+                <div class="stat-value" style="font-size:14px;">AES-128</div>
+            </div>
+            <div class="stat-card vault-stat">
+                <div class="stat-icon">👁️</div>
+                <div class="stat-label">Visible in Search</div>
+                <div class="stat-value" style="font-size:14px; color:#ef4444;">Hidden</div>
+            </div>
+        </div>
+
+        <!-- Add to vault + file list -->
+        <div class="panel-row">
+
+            <!-- FILE LIST -->
+            <div class="results-card">
+                <div class="results-header">
+                    <div class="results-title">Vault Contents</div>
+                    {% if files %}
+                    <span class="badge">{{ files | length }} files</span>
+                    {% endif %}
+                </div>
+
+                {% if files %}
+                    {% for f in files %}
+                    <div class="vault-file-item" id="vf-{{ f.id }}">
+                        <div class="file-icon
+                            {% if f.extension == '.pdf' %}icon-pdf
+                            {% elif f.extension == '.csv' %}icon-csv
+                            {% elif f.extension in ['.jpg','.jpeg','.png'] %}icon-img
+                            {% else %}icon-txt{% endif %}">
+                            {% if f.extension == '.pdf' %}📕
+                            {% elif f.extension == '.csv' %}📊
+                            {% elif f.extension in ['.jpg','.jpeg','.png'] %}🖼️
+                            {% else %}📄{% endif %}
+                        </div>
+                        <div style="flex:1; min-width:0;">
+                            <div class="result-name">{{ f.name }}</div>
+                            <div class="vault-file-meta">
+                                🔐 Encrypted &nbsp;·&nbsp;
+                                {% if f.size %}{{ "%.1f"|format(f.size / 1024) }} KB{% endif %}
+                                &nbsp;·&nbsp; Added {{ f.added_at[:10] if f.added_at else '—' }}
+                            </div>
+                        </div>
+                        <div class="vault-file-actions">
+                            <button class="vault-btn-open"
+                                data-id="{{ f.id }}" data-name="{{ f.name }}"
+                                onclick="vaultOpenFile(this.dataset.id, this.dataset.name)">
+                                ↗ Open
+                            </button>
+                            <button class="vault-btn-restore"
+                                data-id="{{ f.id }}" data-name="{{ f.name }}"
+                                onclick="vaultRestoreFile(this.dataset.id, this.dataset.name)">
+                                ↩ Restore
+                            </button>
+                            <button class="vault-btn-delete"
+                                data-id="{{ f.id }}" data-name="{{ f.name }}"
+                                onclick="vaultDeleteFile(this.dataset.id, this.dataset.name)">
+                                🗑
+                            </button>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="no-results">
+                        <div style="font-size:48px; margin-bottom:12px;">🔐</div>
+                        <div style="font-weight:600; color:#374151;">Vault is empty</div>
+                        <div style="font-size:13px; color:#94a3b8; margin-top:4px;">
+                            Add files from the panel on the right
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- ADD FILES PANEL -->
+            <div>
+                <div class="side-card vault-add-card">
+                    <div class="side-title">🔐 Add File to Vault</div>
+                    <p style="font-size:12px; color:#64748b; margin-bottom:14px; line-height:1.6;">
+                        Select a file to encrypt and hide. It will be removed from normal search.
+                    </p>
+                    <div class="vault-drop-zone" onclick="document.getElementById('vault-file-input').click()">
+                        <input type="file" id="vault-file-input" style="display:none"
+                            accept=".txt,.pdf,.jpg,.jpeg,.png,.csv,.docx"
+                            onchange="handleVaultFileSelect(this)"/>
+                        <div style="font-size:32px; margin-bottom:8px;">🔒</div>
+                        <div style="font-weight:600; color:#374151; font-size:13px;">Click to choose file</div>
+                        <div style="font-size:11px; color:#94a3b8; margin-top:4px;">PDF · TXT · JPG · PNG · CSV</div>
+                    </div>
+                    <div id="vault-selected-file" class="vault-selected-display" style="display:none;">
+                        <span id="vault-selected-name"></span>
+                    </div>
+                    <div class="vault-pw-row">
+                        <input type="password" id="vault-add-pw" class="vault-pw-input"
+                            placeholder="Confirm password to encrypt"/>
+                    </div>
+                    <button class="btn-upload" onclick="addSelectedToVault()" id="vault-add-btn" disabled>
+                        🔐 Encrypt & Add to Vault
+                    </button>
+                </div>
+
+                <!-- Or add from indexed files -->
+                <div class="side-card">
+                    <div class="side-title">📂 Add from Indexed Files</div>
+                    <p style="font-size:12px; color:#64748b; margin-bottom:14px; line-height:1.6;">
+                        Move an already-indexed file into the vault.
+                    </p>
+                    <input type="text" id="vault-path-input" class="search-input"
+                        placeholder="Paste file path here..."
+                        style="margin-bottom:10px; width:100%; font-size:12px;"/>
+                    <input type="password" id="vault-path-pw" class="vault-pw-input"
+                        placeholder="Confirm password"/>
+                    <button class="btn-upload" style="margin-top:10px;"
+                        onclick="addPathToVault()">
+                        🔐 Move to Vault
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        {% endif %}
+    </main>
+
+    <!-- ═══════════════════════════════════════════════
+         CHANGE PASSWORD MODAL
+    ═══════════════════════════════════════════════ -->
+    <div id="change-pw-modal" class="ms-overlay" onclick="closePwModalOnBackdrop(event)">
+        <div class="ms-box" style="max-width:380px;">
+            <button class="ms-close" onclick="closeChangePwModal()">✕</button>
+            <div class="ms-header">
+                <span class="ms-icon">🔑</span>
+                <h2 class="ms-title">Change Password</h2>
+                <p class="ms-sub">You can change your password any time</p>
+            </div>
+            <form method="post" action="/vault/change-password">
+                <div style="display:flex; flex-direction:column; gap:10px;">
+                    <input type="password" name="current_password" class="vault-pw-input"
+                        placeholder="Current password" required/>
+                    <input type="password" name="new_password" class="vault-pw-input"
+                        placeholder="New password" required/>
+                    <input type="password" name="confirm_password" class="vault-pw-input"
+                        placeholder="Confirm new password" required/>
+                </div>
+                <div class="ms-actions" style="margin-top:16px;">
+                    <button type="submit" class="btn-primary" style="flex:1;">
+                        ✅ Update Password
+                    </button>
+                    <button type="button" class="ms-btn-no" onclick="closeChangePwModal()">
+                        Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════════════
+         VAULT ACTION CONFIRM MODAL
+    ═══════════════════════════════════════════════ -->
+    <div id="vault-confirm-modal" class="ms-overlay" onclick="closeConfirmOnBackdrop(event)">
+        <div class="ms-box" style="max-width:360px;">
+            <button class="ms-close" onclick="closeConfirmModal()">✕</button>
+            <div class="ms-header">
+                <span class="ms-icon" id="confirm-icon">🔓</span>
+                <h2 class="ms-title" id="confirm-title">Confirm Action</h2>
+                <p class="ms-sub" id="confirm-sub">Enter your vault password to continue</p>
+            </div>
+            <div id="confirm-file-name" style="
+                background:#f8fafc; border:1px solid #e2e8f0;
+                border-radius:8px; padding:10px 14px;
+                font-size:13px; color:#374151;
+                margin-bottom:14px; word-break:break-all;
+            "></div>
+            <input type="password" id="confirm-pw-input" class="vault-pw-input"
+                placeholder="Enter vault password" style="margin-bottom:14px;"/>
+            <div class="ms-actions">
+                <button class="btn-primary" style="flex:1;" id="confirm-action-btn"
+                    onclick="executeConfirmedAction()">
+                    Confirm
+                </button>
+                <button class="ms-btn-no" onclick="closeConfirmModal()">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    // ── Change password modal ──────────────────────────────────────────────
+    function openChangePwModal() {
+        document.getElementById('change-pw-modal').style.display = 'flex';
+    }
+    function closeChangePwModal() {
+        document.getElementById('change-pw-modal').style.display = 'none';
+    }
+    function closePwModalOnBackdrop(e) {
+        if (e.target.id === 'change-pw-modal') closeChangePwModal();
+    }
+
+    // ── Vault confirm modal ────────────────────────────────────────────────
+    let _pendingAction = null;
+    let _pendingId = null;
+
+    function closeConfirmModal() {
+        document.getElementById('vault-confirm-modal').style.display = 'none';
+        document.getElementById('confirm-pw-input').value = '';
+        _pendingAction = null;
+        _pendingId = null;
+    }
+    function closeConfirmOnBackdrop(e) {
+        if (e.target.id === 'vault-confirm-modal') closeConfirmModal();
+    }
+
+    function openConfirmModal({ icon, title, sub, fileName, actionLabel, action, id }) {
+        document.getElementById('confirm-icon').textContent = icon;
+        document.getElementById('confirm-title').textContent = title;
+        document.getElementById('confirm-sub').textContent = sub;
+        document.getElementById('confirm-file-name').textContent = fileName;
+        document.getElementById('confirm-action-btn').textContent = actionLabel;
+        document.getElementById('confirm-pw-input').value = '';
+        _pendingAction = action;
+        _pendingId = id;
+        document.getElementById('vault-confirm-modal').style.display = 'flex';
+        setTimeout(() => document.getElementById('confirm-pw-input').focus(), 100);
+    }
+
+    async function executeConfirmedAction() {
+        const pw = document.getElementById('confirm-pw-input').value.trim();
+        if (!pw) { alert('Please enter your vault password.'); return; }
+        if (_pendingAction) await _pendingAction(_pendingId, pw);
+    }
+
+    // ── Open vault file ────────────────────────────────────────────────────
+    function vaultOpenFile(id, name) {
+        openConfirmModal({
+            icon: '↗',
+            title: 'Open File',
+            sub: 'File decrypts temporarily and auto-deletes in 60s',
+            fileName: name,
+            actionLabel: '↗ Open',
+            action: async (fileId, pw) => {
+                const res = await fetch(`/vault/open/${fileId}?password=${encodeURIComponent(pw)}`);
+                const data = await res.json();
+                closeConfirmModal();
+                if (data.success) {
+                    showVaultToast('✅ ' + data.message, 'success');
+                } else {
+                    showVaultToast('❌ ' + data.error, 'error');
+                }
+            },
+            id
+        });
+    }
+
+    // ── Restore file ───────────────────────────────────────────────────────
+    function vaultRestoreFile(id, name) {
+        openConfirmModal({
+            icon: '↩',
+            title: 'Restore File',
+            sub: 'Decrypts and restores to original location',
+            fileName: name,
+            actionLabel: '↩ Restore',
+            action: async (fileId, pw) => {
+                const form = new FormData();
+                form.append('password', pw);
+                const res = await fetch(`/vault/remove/${fileId}`, { method: 'POST', body: form });
+                closeConfirmModal();
+                // Will redirect with toast msg
+                window.location.href = '/vault';
+            },
+            id
+        });
+    }
+
+    // ── Delete from vault (no restore) ────────────────────────────────────
+    function vaultDeleteFile(id, name) {
+        if (!confirm(`⚠️ Permanently delete "${name}" from vault? This cannot be undone.`)) return;
+        openConfirmModal({
+            icon: '🗑️',
+            title: 'Delete from Vault',
+            sub: 'File will be permanently deleted. This cannot be undone.',
+            fileName: name,
+            actionLabel: '🗑️ Delete Permanently',
+            action: async (fileId, pw) => {
+                const form = new FormData();
+                form.append('password', pw);
+                // Use remove endpoint but don't restore
+                await fetch(`/vault/remove/${fileId}`, { method: 'POST', body: form });
+                closeConfirmModal();
+                document.getElementById(`vf-${fileId}`)?.remove();
+                showVaultToast('🗑️ File deleted from vault', 'success');
+            },
+            id
+        });
+    }
+
+    // ── Add file via file picker ───────────────────────────────────────────
+    let _selectedVaultFile = null;
+
+    function handleVaultFileSelect(input) {
+        if (!input.files.length) return;
+        _selectedVaultFile = input.files[0];
+        document.getElementById('vault-selected-name').textContent = _selectedVaultFile.name;
+        document.getElementById('vault-selected-file').style.display = 'flex';
+        document.getElementById('vault-add-btn').disabled = false;
+    }
+
+    async function addSelectedToVault() {
+        if (!_selectedVaultFile) return;
+        const pw = document.getElementById('vault-add-pw').value.trim();
+        if (!pw) { showVaultToast('❌ Enter your vault password', 'error'); return; }
+
+        // Upload file first then vault it
+        const uploadForm = new FormData();
+        uploadForm.append('files', _selectedVaultFile);
+
+        showVaultToast('⏳ Uploading...', 'info');
+
+        try {
+            // Use the file's temp path after upload — simpler: just upload directly
+            const res = await fetch('/upload', { method: 'POST', body: uploadForm });
+            // After upload, the file is in temp dir — add via path
+            // Actually use the vault/add endpoint with the file directly
+            const vaultForm = new FormData();
+            vaultForm.append('file', _selectedVaultFile);
+            vaultForm.append('password', pw);
+
+            const vRes = await fetch('/vault/add-upload', { method: 'POST', body: vaultForm });
+            const data = await vRes.json();
+
+            if (data.success) {
+                showVaultToast('✅ ' + data.message, 'success');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                showVaultToast('❌ ' + data.error, 'error');
+            }
+        } catch(e) {
+            showVaultToast('❌ Upload failed', 'error');
+        }
+    }
+
+    async function addPathToVault() {
+        const path = document.getElementById('vault-path-input').value.trim();
+        const pw = document.getElementById('vault-path-pw').value.trim();
+        if (!path) { showVaultToast('❌ Enter a file path', 'error'); return; }
+        if (!pw) { showVaultToast('❌ Enter your vault password', 'error'); return; }
+
+        const form = new FormData();
+        form.append('file_path', path);
+        form.append('password', pw);
+
+        const res = await fetch('/vault/add', { method: 'POST', body: form });
+        const data = await res.json();
+
+        if (data.success) {
+            showVaultToast('✅ ' + data.message, 'success');
+            setTimeout(() => window.location.reload(), 1500);
+        } else {
+            showVaultToast('❌ ' + data.error, 'error');
+        }
+    }
+
+    // ── Lock on navigation away ────────────────────────────────────────────
+    window.addEventListener('beforeunload', () => {
+        navigator.sendBeacon('/vault/lock', '');
+    });
+
+    // ── Toast ─────────────────────────────────────────────────────────────
+    function showVaultToast(msg, type='success') {
+        const old = document.getElementById('vault-toast');
+        if (old) old.remove();
+
+        const t = document.createElement('div');
+        t.id = 'vault-toast';
+        t.className = `toast toast-${type === 'error' ? 'error' : type === 'info' ? 'warning' : 'success'}`;
+        t.textContent = msg;
+        document.body.appendChild(t);
+        setTimeout(() => { t.style.opacity = '0'; setTimeout(() => t.remove(), 400); }, 3500);
+    }
+
+    // ── Lock screen shake on wrong password ───────────────────────────────
+    </script>
+    {% if error %}
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const card = document.querySelector('.lock-card');
+            if (card) {
+                card.classList.add('shake');
+                setTimeout(() => card.classList.remove('shake'), 600);
+            }
+        });
+    </script>
+    {% endif %}
+
+</body>
+</html>

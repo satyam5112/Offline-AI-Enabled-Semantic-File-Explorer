@@ -40,6 +40,16 @@ app = FastAPI(lifespan=lifespan)
 # ---- Static + Templates ----
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
+
+# ---- Vault router (safe import — won't crash server if cryptography missing) ----
+try:
+    from backend.vault.vault_routes import router as vault_router
+    app.include_router(vault_router)
+    print("✅ Vault router registered")
+except Exception as _vault_err:
+    print(f"⚠️ Vault router failed to load: {_vault_err}")
+    print("   → Run: pip install cryptography")
+    print("   → Make sure backend/vault/__init__.py exists")
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
 # ---- Request Model ----
@@ -153,60 +163,6 @@ def get_folders():
     except:
         return []
 
-def save_recent_results(query: str, results: list):
-    """Save top 3 results from each search"""
-    try:
-        conn = sqlite3.connect(DB_LOCATION)
-        cursor = conn.cursor()
-
-        # ✅ Save top 3 results
-        for r in results[:3]:
-            cursor.execute("""
-                INSERT INTO recent_results 
-                (query, file_name, file_path, score)
-                VALUES (?, ?, ?, ?)
-            """, (query, r["file_name"], r["file_path"], r["score"]))
-
-        # ✅ Keep only last 9 results total
-        cursor.execute("""
-            DELETE FROM recent_results
-            WHERE id NOT IN (
-                SELECT id FROM recent_results
-                ORDER BY searched_at DESC
-                LIMIT 9
-            )
-        """)
-
-        conn.commit()
-        conn.close()
-    except Exception as e:
-        print(f"❌ Error saving results: {e}")
-
-def get_recent_results():
-    """Get last 9 recent results"""
-    try:
-        conn = sqlite3.connect(DB_LOCATION)
-        cursor = conn.cursor()
-        cursor.execute("""
-            SELECT query, file_name, file_path, score, searched_at
-            FROM recent_results
-            ORDER BY searched_at DESC
-            LIMIT 9
-        """)
-        rows = cursor.fetchall()
-        conn.close()
-        return [
-            {
-                "query": row[0],
-                "file_name": row[1],
-                "file_path": row[2],
-                "score": row[3],
-                "searched_at": row[4]
-            }
-            for row in rows
-        ]
-    except:
-        return []
 
 # ---- Routes ----
 @app.get("/")
@@ -225,8 +181,7 @@ def home(request: Request, msg: str = ""):
     return templates.TemplateResponse(
         request=request,
         name="index.html",
-        context={"stats": status(), "msg": "", "folders": get_folders(),
-                "recent_searches": get_recent_searches(), "recent_results": get_recent_results()}
+        context={"stats": status(), "msg": "", "folders": folders, "recent_searches": get_recent_searches()}
     )
 
 @app.get("/files")
@@ -260,22 +215,15 @@ def search_ui(request: Request,
               query: str = Form(...),
               file_type: str = Form(None),
               folder: str = Form(None)):
-    
-    results = []
-
     try:
         if not query.strip():
             return templates.TemplateResponse(
                 request=request,
                 name="index.html",
-                context={
-                    "results": [], "stats": status(), "msg": "",
-                    "folders": [], "recent_searches": get_recent_searches(),
-                    "recent_results": get_recent_results()   # ✅ added
-                }
+                context={"results": [], "stats": status(), "msg": "", "folders": [], "recent_searches": get_recent_searches()}
             )
 
-        # Save search query
+        # ✅ Save search query to DB
         save_search(query.strip())
 
         results = search_files(
@@ -284,17 +232,10 @@ def search_ui(request: Request,
             folder=folder if folder else None
         )
 
-        # ✅ Save results to DB
-        save_recent_results(query.strip(), results)
-
         return templates.TemplateResponse(
             request=request,
             name="index.html",
-            context={
-                "results": results, "stats": status(), "msg": "",
-                "folders": get_folders(), "recent_searches": get_recent_searches(),
-                "recent_results": get_recent_results()   # ✅ added
-            }
+            context={"results": results, "stats": status(), "msg": "", "folders": get_folders(), "recent_searches": get_recent_searches()}
         )
 
     except Exception as e:
@@ -306,8 +247,7 @@ def search_ui_get(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="index.html",
-        context={"stats": status(), "msg": "", "folders": get_folders(),
-                "recent_searches": get_recent_searches(), "recent_results": get_recent_results()}
+        context={"stats": status(), "msg": "", "folders": get_folders(), "recent_searches": get_recent_searches()}
     )
 
 @app.post("/clear-searches")
@@ -526,24 +466,16 @@ def clear_report():
     progress["current_file"] = ""
     return {"status": "cleared"}
 
-@app.post("/clear-recent-results")
-def clear_recent_results():
-    try:
-        conn = sqlite3.connect(DB_LOCATION)
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM recent_results")
-        conn.commit()
-        conn.close()
-        return {"status": "cleared"}
-    except Exception as e:
-        return {"error": str(e)}
 
+# ================================================================
 # MOBILE SHARE — wireless file transfer from phone to laptop
+# ================================================================
 SHARED_FOLDER = os.path.join(os.path.expanduser("~"), "Desktop", "shared")
 os.makedirs(SHARED_FOLDER, exist_ok=True)
 
 # Tracks files received from phone, waiting for user to confirm indexing
 _mobile_pending = {"active": False, "files": [], "folder": SHARED_FOLDER}
+
 
 def _get_local_ip():
     try:
@@ -554,6 +486,7 @@ def _get_local_ip():
         return ip
     except Exception:
         return "127.0.0.1"
+
 
 @app.get("/mobile/qr-info")
 def mobile_qr_info():
@@ -804,6 +737,64 @@ def mobile_dismiss_prompt():
     _mobile_pending["files"] = []
     return {"status": "dismissed"}
 
+
+@app.post("/vault/add-upload")
+async def vault_add_upload(file: UploadFile = File(...), password: str = Form(...)):
+    """
+    Upload a file directly into the vault.
+    Encrypts in-place — never saved to a normal location.
+    original_path is NULL because this file came from phone/browser upload,
+    not from an existing location on this PC.
+    """
+    from backend.vault.vault import verify_password, encrypt_file, ensure_vault_table, VAULT_DIR
+    from backend.configuration import DB_LOCATION
+    import uuid
+
+    if not verify_password(password):
+        return {"success": False, "error": "Incorrect password"}
+
+    original_name = file.filename
+    ext = os.path.splitext(original_name)[1].lower()
+    encrypted_name = str(uuid.uuid4()) + ".enc"
+    encrypted_path = os.path.join(VAULT_DIR, encrypted_name)
+
+    # Save upload to temp
+    tmp_path = os.path.join(tempfile.gettempdir(), f"vault_up_{uuid.uuid4()}{ext}")
+    try:
+        with open(tmp_path, "wb") as f_out:
+            shutil.copyfileobj(file.file, f_out)
+
+        size = os.path.getsize(tmp_path)
+
+        # Encrypt directly to vault
+        encrypt_file(tmp_path, encrypted_path, password)
+
+        # Record in DB — original_path is NULL (uploaded from browser, no PC path)
+        ensure_vault_table()
+        conn = sqlite3.connect(DB_LOCATION)
+        cursor = conn.cursor()
+        cursor.execute("""
+            INSERT INTO vault_files (original_name, original_path, encrypted_name, extension, size)
+            VALUES (?, NULL, ?, ?, ?)
+        """, (original_name, encrypted_name, ext, size))
+        conn.commit()
+        conn.close()
+
+        print(f"🔐 Vault upload: {original_name} → {encrypted_name}")
+        return {"success": True, "message": f"{original_name} encrypted and added to vault"}
+
+    except Exception as e:
+        if os.path.exists(encrypted_path):
+            os.remove(encrypted_path)
+        print(f"❌ vault_add_upload error: {e}")
+        import traceback; traceback.print_exc()
+        return {"success": False, "error": str(e)}
+    finally:
+        try:
+            os.remove(tmp_path)
+        except Exception:
+            pass
+
 @app.get("/pick-folder")
 def pick_folder_dialog():
     try:
@@ -828,3 +819,4 @@ def pick_folder_dialog():
 
     except Exception as e:
         return {"path": None, "error": str(e)}
+        
