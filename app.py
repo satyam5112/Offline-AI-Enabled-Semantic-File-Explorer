@@ -179,6 +179,11 @@ class MainWindow(QMainWindow):
         self.browser = QWebEngineView()
         self.browser.page().profile().downloadRequested.connect(self.handle_download)
 
+        from PyQt6.QtWebEngineCore import QWebEngineSettings
+        self.browser.settings().setAttribute(
+            QWebEngineSettings.WebAttribute.LocalContentCanAccessRemoteUrls, True
+        )
+
         self.browser.setHtml("""
             <html>
             <body style="background:#0f172a; display:flex; align-items:center;

@@ -31,8 +31,12 @@
             Menu
         </div>
         <nav>
-            <a href="/" class="nav-item active">🔍 Search</a>
-            <a href="/files" class="nav-item">📁 My Files</a>
+            <a class="nav-item active" onclick="showTab(event,'search')">🔍 <span>Search</span></a>
+            <a href="/files" class="nav-item">📁 <span>My Files</span></a>
+            <a class="nav-item" onclick="showTab(event,'upload')">➕ <span>Add Files</span></a>
+            <a class="nav-item" onclick="showTab(event,'folder')">📂 <span>Add Folder</span></a>
+            <a class="nav-item" onclick="showTab(event,'share')">📡 <span>Share</span></a>
+            <a class="nav-item" onclick="showTab(event,'watch')">👀 <span>Watching</span></a>
         </nav>
         <div class="sidebar-bottom">
             <button class="btn-reset-nav" onclick="showResetModal()">🗑️ Reset Database</button>
@@ -79,8 +83,9 @@
     </aside>
 
     <!-- MAIN -->
-    <main class="main">
+    <div class="sidebar-toggle" onclick="toggleSidebar()">☰</div>
 
+    <main class="main">
         <!-- TOP BAR -->
         <div class="topbar">
             <div>
@@ -88,68 +93,60 @@
                 <p class="page-sub">Semantic search across all your indexed documents</p>
             </div>
         </div>
-
-        <!-- STATS ROW -->
-        <div class="stats-row">
-            <div class="stat-card">
-                <div class="stat-icon">📄</div>
-                <div class="stat-label">Total Files</div>
-                <div class="stat-value">{{ stats.total_files if stats else '—' }}</div>
+        <!-- SEARCH TAB -->
+        <div id="tab-search" class="tab active">
+            <!-- STATS ROW -->
+            <div class="stats-row">
+                <div class="stat-card">
+                    <div class="stat-icon">📄</div>
+                    <div class="stat-label">Total Files</div>
+                    <div class="stat-value">{{ stats.total_files if stats else '—' }}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🧠</div>
+                    <div class="stat-label">Vectors Indexed</div>
+                    <div class="stat-value">{{ stats.total_vectors if stats else '—' }}</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-icon">🔎</div>
+                    <div class="stat-label">Results Found</div>
+                    <div class="stat-value">{{ results | length if results else '0' }}</div>
+                </div>
             </div>
-            <div class="stat-card">
-                <div class="stat-icon">🧠</div>
-                <div class="stat-label">Vectors Indexed</div>
-                <div class="stat-value">{{ stats.total_vectors if stats else '—' }}</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon">📂</div>
-                <div class="stat-label">Folders</div>
-                <div class="stat-value">4</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-icon">🔎</div>
-                <div class="stat-label">Results Found</div>
-                <div class="stat-value">{{ results | length if results else '0' }}</div>
-            </div>
-        </div>
 
-        <!-- SEARCH FORM -->
-        <div class="search-card">
-            <div class="search-label">Search your documents</div>
-            <form method="post" action="/search-ui" class="search-row">
-                <input class="search-input" type="text" name="query"
-                    id="search-input"
-                    placeholder="🔍  Enter search query..."
-                    autocomplete="off"
-                    required>
-                <select class="filter-input" name="file_type">
-                    <option value="">All Types</option>
-                    <option value=".txt">📄 Text (.txt)</option>
-                    <option value=".pdf">📕 PDF (.pdf)</option>
-                    <option value=".jpg">🖼️ Image (.jpg)</option>
-                    <option value=".csv">📊 CSV (.csv)</option>
-                </select>
-                <input class="filter-input" type="text" name="folder"
-                    placeholder="Folder name">
-                <button class="btn-primary" type="submit">Search</button>
-            </form>
+            <!-- SEARCH FORM -->
+            <div class="search-card">
+                <div class="search-label">Search your documents</div>
+                <form method="post" action="/search-ui" class="search-row">
+                    <input class="search-input" type="text" name="query"
+                        id="search-input"
+                        placeholder="🔍  Enter search query..."
+                        autocomplete="off"
+                        required>
+                    <select class="filter-input" name="file_type">
+                        <option value="">All Types</option>
+                        <option value=".txt">📄 Text (.txt)</option>
+                        <option value=".pdf">📕 PDF (.pdf)</option>
+                        <option value=".jpg">🖼️ Image (.jpg)</option>
+                        <option value=".csv">📊 CSV (.csv)</option>
+                    </select>
+                    <input class="filter-input" type="text" name="folder"
+                        placeholder="Folder name">
+                    <button class="btn-primary" type="submit">Search</button>
+                </form>
 
-            {% if recent_searches %}
-            <div class="recent-searches">
-                <span class="recent-label">Recent:</span>
-                {% for q in recent_searches %}
-                <button class="recent-chip" onclick="setSearch('{{ q }}')">
-                    🕐 {{ q }}
-                </button>
-                {% endfor %}
-                <button class="recent-clear" onclick="clearSearches()">Clear</button>
+                {% if recent_searches %}
+                <div class="recent-searches">
+                    <span class="recent-label">Recent:</span>
+                    {% for q in recent_searches %}
+                    <button class="recent-chip" onclick="setSearch('{{ q }}')">
+                        🕐 {{ q }}
+                    </button>
+                    {% endfor %}
+                    <button class="recent-clear" onclick="clearSearches()">Clear</button>
+                </div>
+                {% endif %}
             </div>
-            {% endif %}
-        </div>
-
-        <!-- PANEL ROW -->
-        <div class="panel-row">
-
             <!-- RESULTS -->
             <div class="results-card">
                 <div class="results-header">
@@ -207,120 +204,142 @@
                     </div>
                 {% endif %}
             </div>
-
-            <!-- SIDEBAR PANELS -->
-            <div>
-                <!-- UPLOAD -->
-                <div class="side-card">
-                    <div class="side-title">📁 Add Files</div>
-                    <form action="/upload" method="post" enctype="multipart/form-data">
-                        <label class="upload-zone" for="file-input">
-                            <div style="font-size:28px; margin-bottom:8px;">☁️</div>
-                            <div style="font-weight:600; color:#374151; margin-bottom:4px;">
-                                Drop files here
-                            </div>
-                            <div id="file-label">or click to browse</div>
-                            <div style="margin-top:8px; font-size:11px; color:#94a3b8;">
-                                .txt &nbsp;·&nbsp; .pdf &nbsp;·&nbsp; .jpg &nbsp;·&nbsp; .png &nbsp;·&nbsp; .csv
-                            </div>
-                        </label>
-                        <input type="file" id="file-input" name="files" multiple
-                               accept=".txt,.pdf,.jpg,.jpeg,.png,.csv"
-                               style="display:none;"
-                               onchange="updateLabel(this)">
-                        <button class="btn-upload" type="submit">+ Add Files</button>
-                    </form>
-                </div>
-
-                <!-- ✅ SHARE FROM PHONE — new card -->
-                <div class="side-card">
-                    <div class="side-title">📱 Share from Phone</div>
-                    <p style="font-size:12px; color:#64748b; margin-bottom:12px; line-height:1.6;">
-                        Send files wirelessly from your phone on the same WiFi network.
-                    </p>
-                    <button class="btn-share-phone" onclick="openQRModal()">
-                        📡 Show QR Code
-                    </button>
-                    <div style="margin-top:8px; font-size:11px; color:#94a3b8;">
-                        Files saved to Desktop/shared/
+            <!-- RECENT RESULTS -->
+            {% if recent_results and not results %}
+            <div class="results-card" style="margin-top: 20px;">
+                <div class="results-header">
+                    <div class="results-title">🕐 Recent Results</div>
+                    <div style="display:flex; align-items:center; gap:10px;">
+                        <span class="badge">{{ recent_results | length }}</span>
+                        <button onclick="clearRecentResults()"
+                            style="background:none; border:none; font-size:11px;
+                                color:#94a3b8; cursor:pointer; padding:2px 6px;
+                                border-radius:6px;"
+                            onmouseover="this.style.color='#ef4444'"
+                            onmouseout="this.style.color='#94a3b8'">
+                            Clear
+                        </button>
                     </div>
                 </div>
 
-                <!-- WATCHING -->
-                <div class="side-card">
-                    <div class="side-title">👀 Watching</div>
-                    {% if folders %}
-                        <div class="watched-list">
-                            {% for f in folders %}
-                            <div class="watched-item">
-                                <div class="watched-info">
-                                    <span class="watched-dot"></span>
-                                    <span class="watched-path" title="{{ f }}">
-                                        {{ f.split('\\')[-1] or f.split('/')[-1] }}
-                                    </span>
-                                </div>
-                                <div class="watched-full-path">{{ f }}</div>
-                                <form method="post" action="/remove-folder" style="margin:0;">
-                                    <input type="hidden" name="path" value="{{ f }}">
-                                    <button class="watched-remove" title="Remove folder">✖</button>
-                                </form>
-                            </div>
-                            {% endfor %}
+                {% for r in recent_results %}
+                <div class="result-item">
+                    <div class="file-icon
+                        {% if r.file_name.endswith('.pdf') %}icon-pdf
+                        {% elif r.file_name.endswith('.csv') %}icon-csv
+                        {% elif r.file_name.endswith('.jpg') or r.file_name.endswith('.png') %}icon-img
+                        {% else %}icon-txt{% endif %}">
+                        {% if r.file_name.endswith('.pdf') %}📕
+                        {% elif r.file_name.endswith('.csv') %}📊
+                        {% elif r.file_name.endswith('.jpg') or r.file_name.endswith('.png') %}🖼️
+                        {% else %}📄{% endif %}
+                    </div>
+                    <div style="flex:1; min-width:0;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                            <div class="result-name">{{ r.file_name }}</div>
+                            <span class="score-badge">{{ r.score | round(3) }}</span>
                         </div>
-                    {% else %}
-                        <div class="watched-empty">
-                            <div style="font-size:24px; margin-bottom:6px;">📂</div>
-                            <div>No folders being watched</div>
-                            <div style="margin-top:4px; font-size:11px;">Add a folder to start indexing</div>
+                        <div class="result-folder">
+                            🔍 {{ r.query }} &nbsp;·&nbsp;
+                            <a class="open-link"
+                            href="javascript:void(0)"
+                            onclick="openFile(this.dataset.path)"
+                            data-path="{{ r.file_path }}">
+                            Open File ↗
+                            </a>
                         </div>
-                    {% endif %}
-                </div>
-
-                <!-- ADD FOLDER -->
-                <div class="side-card">
-                    <div class="side-title">📂 Add Folder</div>
-                    <div id="selected-folder" style="
-                        width:100%;
-                        padding:10px;
-                        border-radius:8px;
-                        border:1px solid #334155;
-                        background:#0f172a;
-                        color:#64748b;
-                        margin-bottom:10px;
-                        font-size:12px;
-                        min-height:40px;
-                        word-break:break-all;
-                    ">No folder selected</div>
-                    <button class="btn-upload" onclick="pickFolder()">
-                        📂 Browse Folder
-                    </button>
-                    <div style="margin-top:8px; font-size:11px; color:#94a3b8;">
-                        Scan + Watch folder for changes
                     </div>
                 </div>
-
-                <!-- FILE TYPE BREAKDOWN -->
-                <div class="side-card">
-                    <div class="side-title">📊 File Types</div>
-                    <div class="meta-row">
-                        <span>📄 Text Files</span>
-                        <span class="meta-count">{{ stats.txt_count if stats else '—' }}</span>
-                    </div>
-                    <div class="meta-row">
-                        <span>📕 PDF Files</span>
-                        <span class="meta-count">{{ stats.pdf_count if stats else '—' }}</span>
-                    </div>
-                    <div class="meta-row">
-                        <span>🖼️ Image Files</span>
-                        <span class="meta-count">{{ stats.img_count if stats else '—' }}</span>
-                    </div>
-                    <div class="meta-row">
-                        <span>📊 CSV Files</span>
-                        <span class="meta-count">{{ stats.csv_count if stats else '—' }}</span>
-                    </div>
-                </div>
+                {% endfor %}
             </div>
+            {% endif %}
+        </div>
+        <!-- UPLOAD -->
+        <div class="side-card">
+            <div class="side-title">📁 Add Files</div>
+            <form action="/upload" method="post" enctype="multipart/form-data">
+                <label class="upload-zone" for="file-input">
+                    <div style="font-size:28px; margin-bottom:8px;">☁️</div>
+                    <div style="font-weight:600; color:#374151; margin-bottom:4px;">
+                        Drop files here
+                    </div>
+                    <div id="file-label">or click to browse</div>
+                    <div style="margin-top:8px; font-size:11px; color:#94a3b8;">
+                        .txt &nbsp;·&nbsp; .pdf &nbsp;·&nbsp; .jpg &nbsp;·&nbsp; .png &nbsp;·&nbsp; .csv
+                    </div>
+                </label>
+                <input type="file" id="file-input" name="files" multiple
+                        accept=".txt,.pdf,.jpg,.jpeg,.png,.csv"
+                        style="display:none;"
+                        onchange="updateLabel(this)">
+                <button class="btn-upload" type="submit">+ Add Files</button>
+            </form>
+        </div>
+        <!-- ADD FOLDER -->
+        <div class="side-card">
+            <div class="side-title">📂 Add Folder</div>
+            <div id="selected-folder" style="
+                width:100%;
+                padding:10px;
+                border-radius:8px;
+                border:1px solid #334155;
+                background:#0f172a;
+                color:#64748b;
+                margin-bottom:10px;
+                font-size:12px;
+                min-height:40px;
+                word-break:break-all;
+            ">No folder selected</div>
+            <button class="btn-upload" onclick="pickFolder()">
+                📂 Browse Folder
+            </button>
+            <div style="margin-top:8px; font-size:11px; color:#94a3b8;">
+                Scan + Watch folder for changes
+            </div>
+        </div>
 
+        <!-- ✅ SHARE FROM PHONE — new card -->
+        <div class="side-card">
+            <div class="side-title">📱 Share from Phone</div>
+            <p style="font-size:12px; color:#64748b; margin-bottom:12px; line-height:1.6;">
+                Send files wirelessly from your phone on the same WiFi network.
+            </p>
+            <button class="btn-share-phone" onclick="openQRModal()">
+                📡 Show QR Code
+            </button>
+            <div style="margin-top:8px; font-size:11px; color:#94a3b8;">
+                Files saved to Desktop/shared/
+            </div>
+        </div>
+
+        <!-- WATCHING -->
+        <div class="side-card">
+            <div class="side-title">👀 Watching</div>
+            {% if folders %}
+                <div class="watched-list">
+                    {% for f in folders %}
+                    <div class="watched-item">
+                        <div class="watched-info">
+                            <span class="watched-dot"></span>
+                            <span class="watched-path" title="{{ f }}">
+                                {{ f.split('\\')[-1] or f.split('/')[-1] }}
+                            </span>
+                        </div>
+                        <div class="watched-full-path">{{ f }}</div>
+                        <form method="post" action="/remove-folder" style="margin:0;">
+                            <input type="hidden" name="path" value="{{ f }}">
+                            <button class="watched-remove" title="Remove folder">✖</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <div class="watched-empty">
+                    <div style="font-size:24px; margin-bottom:6px;">📂</div>
+                    <div>No folders being watched</div>
+                    <div style="margin-top:4px; font-size:11px;">Add a folder to start indexing</div>
+                </div>
+            {% endif %}
         </div>
     </main>
 
@@ -569,7 +588,13 @@
             await fetch("/clear-searches", { method: "POST" });
             window.location.reload();
         }
+        // <!--- Recent results -->
+        async function clearRecentResults() {
+            await fetch("/clear-recent-results", { method: "POST" });
+            window.location.reload();
+}
     </script>
+
 
     <!-- ============================================================
          MOBILE SHARE — QR modal + index prompt logic
@@ -577,282 +602,12 @@
          no img/data: tags — works in PyQt6 WebEngine).
     ============================================================ -->
     <script>
-    // ================================================================
-    // Compact, correct QR encoder — Byte mode, ECC Level M
-    // Derived from nayuki.io QR reference implementation (MIT licence)
-    // Outputs inline SVG rectangles — no canvas, no img, no data: URLs
-    // ================================================================
-    const QR = (() => {
-        // GF(256) tables
-        const GF_EXP = new Uint8Array(512);
-        const GF_LOG = new Uint8Array(256);
-        (() => {
-            let x = 1;
-            for (let i = 0; i < 255; i++) {
-                GF_EXP[i] = x;
-                GF_LOG[x] = i;
-                x ^= (x << 1) ^ (x >= 128 ? 0x11D : 0);
-            }
-            for (let i = 255; i < 512; i++) GF_EXP[i] = GF_EXP[i - 255];
-        })();
-        const gfMul = (a, b) => (!a || !b) ? 0 : GF_EXP[GF_LOG[a] + GF_LOG[b]];
-
-        function rsPoly(deg) {
-            let p = [1];
-            for (let i = 0; i < deg; i++) {
-                const q = new Array(p.length + 1).fill(0);
-                for (let j = 0; j < p.length; j++) {
-                    q[j] ^= gfMul(p[j], GF_EXP[i]);
-                    q[j + 1] ^= p[j];
-                }
-                p = q;
-            }
-            return p;
-        }
-
-        function rsEncode(data, ecLen) {
-            const gen = rsPoly(ecLen);
-            const res = new Uint8Array(ecLen);
-            for (const b of data) {
-                const f = b ^ res[0];
-                res.copyWithin(0, 1);
-                res[ecLen - 1] = 0;
-                for (let j = 0; j < ecLen; j++) res[j] ^= gfMul(gen[ecLen - 1 - j], f);
-            }
-            return res;
-        }
-
-        // ECC-M capacity table [version] = {cap, ecbPerBlock, blocks: [[count,dc],...]}
-        const VER = {
-             1: {cap:16,  ec:10, bl:[[1,16]]},
-             2: {cap:28,  ec:16, bl:[[1,28]]},
-             3: {cap:44,  ec:26, bl:[[1,44]]},
-             4: {cap:64,  ec:18, bl:[[2,32]]},
-             5: {cap:86,  ec:24, bl:[[2,43]]},
-             6: {cap:108, ec:16, bl:[[4,27]]},
-             7: {cap:124, ec:18, bl:[[4,31]]},
-             8: {cap:154, ec:22, bl:[[2,38],[2,39]]},
-             9: {cap:182, ec:22, bl:[[3,36],[2,37]]},
-            10: {cap:216, ec:26, bl:[[4,43],[1,43]]},
-        };
-
-        function pickVersion(byteLen) {
-            for (let v = 1; v <= 10; v++) {
-                // header=12 bits + 8*byteLen + 4 terminator, ceil to bytes
-                if (Math.ceil((12 + byteLen * 8 + 4) / 8) <= VER[v].cap) return v;
-            }
-            return 10;
-        }
-
-        function makeData(text, version) {
-            const bytes = new TextEncoder().encode(text);
-            const totalDC = VER[version].cap;
-            const bits = [];
-            const push = (v, n) => { for (let i = n-1; i >= 0; i--) bits.push((v >> i) & 1); };
-            push(4, 4);                              // Byte mode
-            push(bytes.length, version < 10 ? 8 : 16);
-            for (const b of bytes) push(b, 8);
-            push(0, 4);                              // terminator
-            while (bits.length % 8) bits.push(0);
-            const PAD = [0xEC, 0x11];
-            let pi = 0;
-            while (bits.length / 8 < totalDC) { push(PAD[pi++ % 2], 8); }
-            const cw = new Uint8Array(totalDC);
-            for (let i = 0; i < totalDC; i++) {
-                let b = 0;
-                for (let j = 0; j < 8; j++) b = (b << 1) | bits[i*8+j];
-                cw[i] = b;
-            }
-            return cw;
-        }
-
-        function interleave(version, dataCW) {
-            const {ec, bl} = VER[version];
-            const blocks = [];
-            let off = 0;
-            for (const [cnt, dc] of bl) {
-                for (let i = 0; i < cnt; i++) { blocks.push(dataCW.slice(off, off + dc)); off += dc; }
-            }
-            const ecBlocks = blocks.map(b => rsEncode(b, ec));
-            const out = [];
-            const maxDC = Math.max(...blocks.map(b => b.length));
-            for (let i = 0; i < maxDC; i++) for (const b of blocks) if (i < b.length) out.push(b[i]);
-            for (let i = 0; i < ec; i++) for (const b of ecBlocks) out.push(b[i]);
-            return new Uint8Array(out);
-        }
-
-        const SZ = v => v * 4 + 17;
-
-        function newMatrix(v) {
-            const sz = SZ(v);
-            return Array.from({length: sz}, () => new Int8Array(sz).fill(-1));
-        }
-
-        function finderAt(m, r, c) {
-            for (let dr = -1; dr <= 7; dr++) for (let dc = -1; dc <= 7; dc++) {
-                const nr = r + dr, nc = c + dc;
-                if (nr < 0 || nr >= m.length || nc < 0 || nc >= m.length) continue;
-                const on = dr===-1||dr===7||dc===-1||dc===7||(dr>=2&&dr<=4&&dc>=2&&dc<=4);
-                m[nr][nc] = on ? 1 : 0;
-            }
-        }
-
-        function placeFixed(m, version) {
-            const sz = m.length;
-            finderAt(m, 0, 0); finderAt(m, 0, sz-7); finderAt(m, sz-7, 0);
-            // Timing
-            for (let i = 8; i < sz-8; i++) {
-                if (m[6][i] === -1) m[6][i] = i % 2 === 0 ? 1 : 0;
-                if (m[i][6] === -1) m[i][6] = i % 2 === 0 ? 1 : 0;
-            }
-            // Dark module
-            m[sz-8][8] = 1;
-            // Alignment (v>=2)
-            const AP = {2:[6,18],3:[6,22],4:[6,26],5:[6,30],6:[6,34],
-                        7:[6,22,38],8:[6,24,42],9:[6,28,46],10:[6,28,50]};
-            const coords = AP[version] || [];
-            for (const ar of coords) for (const ac of coords) {
-                if (m[ar][ac] !== -1) continue;
-                for (let dr = -2; dr <= 2; dr++) for (let dc = -2; dc <= 2; dc++) {
-                    m[ar+dr][ac+dc] = (Math.abs(dr)===2||Math.abs(dc)===2||(dr===0&&dc===0)) ? 1 : 0;
-                }
-            }
-        }
-
-        function placeData(m, bits) {
-            const sz = m.length;
-            let bi = 0, up = true;
-            for (let col = sz-1; col >= 1; col -= 2) {
-                if (col === 6) col--;
-                for (let row = 0; row < sz; row++) {
-                    const r = up ? sz-1-row : row;
-                    for (let dc = 0; dc <= 1; dc++) {
-                        const c = col - dc;
-                        if (m[r][c] === -1) m[r][c] = bi < bits.length ? bits[bi++] : 0;
-                    }
-                }
-                up = !up;
-            }
-        }
-
-        const MASKS = [
-            (r,c) => (r+c)%2===0,
-            (r,c) => r%2===0,
-            (r,c) => c%3===0,
-            (r,c) => (r+c)%3===0,
-            (r,c) => (Math.floor(r/2)+Math.floor(c/3))%2===0,
-            (r,c) => (r*c)%2+(r*c)%3===0,
-            (r,c) => ((r*c)%2+(r*c)%3)%2===0,
-            (r,c) => ((r+c)%2+(r*c)%3)%2===0,
-        ];
-
-        function applyMask(m, mask) {
-            const sz = m.length;
-            for (let r = 0; r < sz; r++) for (let c = 0; c < sz; c++) {
-                if (m[r][c] < 2 && m[r][c] >= 0 && MASKS[mask](r, c)) m[r][c] ^= 1;
-            }
-        }
-
-        // Format info for ECC=M(01) + mask
-        const FMT = [0x5412,0x5125,0x5E7C,0x5B4B,0x45F9,0x40CE,0x4F97,0x4AA0];
-
-        function writeFormat(m, mask) {
-            const sz = m.length;
-            const fmt = FMT[mask];
-            for (let i = 0; i < 15; i++) {
-                const bit = (fmt >> (14-i)) & 1;
-                // horizontal copy around top-left finder
-                const hc = i < 6 ? i : i < 8 ? i+1 : sz-15+i;
-                m[8][hc] = bit;
-                // vertical copy
-                const vc = i < 8 ? sz-i-1 : i < 9 ? 15-i : 14-i;
-                m[vc][8] = bit;
-            }
-        }
-
-        function penalty(m) {
-            const sz = m.length; let s = 0;
-            // N1: runs of 5+
-            for (let r = 0; r < sz; r++) {
-                let run = 1;
-                for (let c = 1; c < sz; c++) {
-                    run = m[r][c]===m[r][c-1] ? run+1 : 1;
-                    if (run === 5) s += 3; else if (run > 5) s++;
-                }
-            }
-            for (let c = 0; c < sz; c++) {
-                let run = 1;
-                for (let r = 1; r < sz; r++) {
-                    run = m[r][c]===m[r-1][c] ? run+1 : 1;
-                    if (run === 5) s += 3; else if (run > 5) s++;
-                }
-            }
-            // N2: 2x2 blocks
-            for (let r = 0; r < sz-1; r++) for (let c = 0; c < sz-1; c++) {
-                const v = m[r][c];
-                if (v===m[r][c+1]&&v===m[r+1][c]&&v===m[r+1][c+1]) s += 3;
-            }
-            return s;
-        }
-
-        function buildMatrix(version, finalCW) {
-            const bits = [];
-            for (const b of finalCW) for (let i = 7; i >= 0; i--) bits.push((b >> i) & 1);
-            // remainder bits
-            const rem = [0,7,7,7,7,7,0,0,0,0][version-1] || 0;
-            for (let i = 0; i < rem; i++) bits.push(0);
-
-            // Try all 8 masks, pick best
-            let bestMask = 0, bestScore = Infinity, bestMatrix = null;
-            for (let mask = 0; mask < 8; mask++) {
-                const m = newMatrix(version);
-                placeFixed(m, version);
-                placeData(m, bits);
-                applyMask(m, mask);
-                writeFormat(m, mask);
-                const s = penalty(m);
-                if (s < bestScore) { bestScore = s; bestMask = mask; bestMatrix = m; }
-            }
-            return bestMatrix;
-        }
-
-        function toSVG(m, px) {
-            const sz = m.length;
-            const cell = px / sz;
-            const quiet = cell * 4; // 4-module quiet zone
-            const total = px + quiet * 2;
-            let rects = '';
-            for (let r = 0; r < sz; r++) for (let c = 0; c < sz; c++) {
-                if ((m[r][c] & 1) === 1) {
-                    const x = (quiet + c * cell).toFixed(2);
-                    const y = (quiet + r * cell).toFixed(2);
-                    const w = (cell + 0.5).toFixed(2); // slight overlap prevents gaps
-                    rects += `<rect x="${x}" y="${y}" width="${w}" height="${w}"/>`;
-                }
-            }
-            return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${total} ${total}" width="${total}" height="${total}" shape-rendering="crispEdges"><rect width="${total}" height="${total}" fill="#fff"/><g fill="#0f172a">${rects}</g></svg>`;
-        }
-
-        return {
-            svg(text, px = 220) {
-                const enc = new TextEncoder().encode(text);
-                const version = pickVersion(enc.length);
-                const dataCW = makeData(text, version);
-                const finalCW = interleave(version, dataCW);
-                const matrix = buildMatrix(version, finalCW);
-                return toSVG(matrix, px);
-            }
-        };
-    })();
-
-    // ---- QR Modal ----
+    // ---- QR Modal — uses goqr.me API, returns a real PNG, guaranteed scannable ----
     async function openQRModal() {
         document.getElementById('qr-modal').style.display = 'flex';
         const inner = document.getElementById('qr-inner');
         inner.innerHTML = '<p style="color:#94a3b8;font-size:13px;padding:24px 16px;text-align:center;">Generating QR...</p>';
-
-        // Always fetch /mobile/qr-info — it now exists in main.py
-        // and returns the real LAN IP, not 127.0.0.1
+ 
         let mobileUrl, folderPath;
         try {
             const res = await fetch('/mobile/qr-info');
@@ -863,23 +618,33 @@
             inner.innerHTML = '<p style="color:#ef4444;font-size:12px;padding:16px;text-align:center;">Could not reach server.<br>Is it running?</p>';
             return;
         }
-
-        inner.innerHTML = QR.svg(mobileUrl, 200);
+ 
+        // goqr.me — free, no auth, returns PNG directly, highly scannable
+        // size=300x300, ecc=M (medium error correction, good balance)
+        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&ecc=M&margin=10&data=${encodeURIComponent(mobileUrl)}`;
+ 
+        inner.innerHTML = `<img src="${qrApiUrl}"
+            width="260" height="260"
+            style="display:block; border-radius:8px;"
+            alt="QR Code"
+            onerror="this.parentElement.innerHTML='<p style=\'color:#ef4444;font-size:12px;padding:16px;text-align:center;\'>QR load failed.<br>Check internet connection.</p>'"
+        />`;
+ 
         document.getElementById('qr-url-chip').textContent = mobileUrl;
         document.getElementById('ms-folder-path').textContent = folderPath;
     }
-
+ 
     function closeQRModal() {
         document.getElementById('qr-modal').style.display = 'none';
     }
-
+ 
     function closeQROnBackdrop(e) {
         if (e.target.id === 'qr-modal') closeQRModal();
     }
-
+ 
     // ---- Poll for incoming files every 4 seconds ----
     let _shownIndexPrompt = false;
-
+ 
     setInterval(async () => {
         try {
             const res = await fetch('/mobile/pending');
@@ -890,7 +655,7 @@
             }
         } catch (e) {}
     }, 4000);
-
+ 
     function showIndexPrompt(files, folder) {
         const list = document.getElementById('received-files-list');
         list.innerHTML = files.map(f =>
@@ -899,7 +664,7 @@
         document.getElementById('index-modal').dataset.folder = folder;
         document.getElementById('index-modal').style.display = 'flex';
     }
-
+ 
     async function indexSharedFolder() {
         const folder = document.getElementById('index-modal').dataset.folder;
         document.getElementById('index-modal').style.display = 'none';
@@ -910,11 +675,24 @@
         await fetch('/add-folder', { method: 'POST', body: form });
         window.location.href = '/?msg=success:Shared files queued for indexing';
     }
-
+ 
     async function dismissIndexPrompt() {
         document.getElementById('index-modal').style.display = 'none';
         _shownIndexPrompt = false;
         await fetch('/mobile/dismiss-prompt', { method: 'POST' });
+    }
+    </script>
+    <script>
+    function showTab(e, tab) {
+        document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+        document.getElementById('tab-' + tab).classList.add('active');
+
+        document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+    }
+
+    function toggleSidebar() {
+        document.querySelector('.sidebar').classList.toggle('collapsed');
     }
     </script>
 

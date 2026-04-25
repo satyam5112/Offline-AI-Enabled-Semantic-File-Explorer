@@ -311,9 +311,14 @@ a.nav-item { text-decoration: none; }
     background: #fff;
     border: 1.5px solid #e2e8f0;
     border-radius: 12px;
-    padding: 12px;
+    padding: 10px;
     margin: 0 auto 16px;
     width: fit-content;
+}
+#qr-inner svg {
+    display: block;
+    margin: auto;
+    image-rendering: pixelated;
 }
 
 /* URL chip below QR */
@@ -424,11 +429,19 @@ a.nav-item { text-decoration: none; }
 .ms-btn-no:hover { background: #f8fafc; border-color: #cbd5e1; color: #374151; }
 
 #qr-inner {
-    width: 220px;
-    height: 220px;
     display: flex;
     align-items: center;
     justify-content: center;
     background: #f8fafc;
     border: 2px dashed #cbd5f5;
     border-radius: 12px;
+    padding: 6px;
+}
+#qr-inner svg {
+    width: 100%;
+    height: auto;
+    max-width: 420px;
+    image-rendering: pixelated;
+    shape-rendering: crispEdges;
+
+}

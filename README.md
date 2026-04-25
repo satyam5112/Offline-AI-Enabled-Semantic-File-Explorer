@@ -22,13 +22,6 @@ Pause / Resume Indexing
 Recently Opened Panel
 4. Search Suggestions (Auto-complete)
 
-11. Natural Language Search
-Instead of:
-
-"pizza"
-User writes:
-
-"documents related to pizza recipes"
 
 12. OCR Search (Images + PDFs)
 You already touched OCR.
@@ -41,7 +34,7 @@ scanned PDFs
 
 16. Web Interface + Mobile Access
 Access your search from:
---> made changes in html and css code, created a folder mobile_share, but apis are not created yet, and qr is not showing up.
+--> qr is not workng.
 
 17. Chat with Files (🔥 CRAZY FEATURE)
 User asks:

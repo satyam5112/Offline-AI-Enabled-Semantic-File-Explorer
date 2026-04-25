@@ -153,6 +153,60 @@ def get_folders():
     except:
         return []
 
+def save_recent_results(query: str, results: list):
+    """Save top 3 results from each search"""
+    try:
+        conn = sqlite3.connect(DB_LOCATION)
+        cursor = conn.cursor()
+
+        # ✅ Save top 3 results
+        for r in results[:3]:
+            cursor.execute("""
+                INSERT INTO recent_results 
+                (query, file_name, file_path, score)
+                VALUES (?, ?, ?, ?)
+            """, (query, r["file_name"], r["file_path"], r["score"]))
+
+        # ✅ Keep only last 9 results total
+        cursor.execute("""
+            DELETE FROM recent_results
+            WHERE id NOT IN (
+                SELECT id FROM recent_results
+                ORDER BY searched_at DESC
+                LIMIT 9
+            )
+        """)
+
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"❌ Error saving results: {e}")
+
+def get_recent_results():
+    """Get last 9 recent results"""
+    try:
+        conn = sqlite3.connect(DB_LOCATION)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT query, file_name, file_path, score, searched_at
+            FROM recent_results
+            ORDER BY searched_at DESC
+            LIMIT 9
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+        return [
+            {
+                "query": row[0],
+                "file_name": row[1],
+                "file_path": row[2],
+                "score": row[3],
+                "searched_at": row[4]
+            }
+            for row in rows
+        ]
+    except:
+        return []
 
 # ---- Routes ----
 @app.get("/")
@@ -171,7 +225,8 @@ def home(request: Request, msg: str = ""):
     return templates.TemplateResponse(
         request=request,
         name="index.html",
-        context={"stats": status(), "msg": "", "folders": folders, "recent_searches": get_recent_searches()}
+        context={"stats": status(), "msg": "", "folders": get_folders(),
+                "recent_searches": get_recent_searches(), "recent_results": get_recent_results()}
     )
 
 @app.get("/files")
@@ -205,15 +260,22 @@ def search_ui(request: Request,
               query: str = Form(...),
               file_type: str = Form(None),
               folder: str = Form(None)):
+    
+    results = []
+
     try:
         if not query.strip():
             return templates.TemplateResponse(
                 request=request,
                 name="index.html",
-                context={"results": [], "stats": status(), "msg": "", "folders": [], "recent_searches": get_recent_searches()}
+                context={
+                    "results": [], "stats": status(), "msg": "",
+                    "folders": [], "recent_searches": get_recent_searches(),
+                    "recent_results": get_recent_results()   # ✅ added
+                }
             )
 
-        # ✅ Save search query to DB
+        # Save search query
         save_search(query.strip())
 
         results = search_files(
@@ -222,10 +284,17 @@ def search_ui(request: Request,
             folder=folder if folder else None
         )
 
+        # ✅ Save results to DB
+        save_recent_results(query.strip(), results)
+
         return templates.TemplateResponse(
             request=request,
             name="index.html",
-            context={"results": results, "stats": status(), "msg": "", "folders": get_folders(), "recent_searches": get_recent_searches()}
+            context={
+                "results": results, "stats": status(), "msg": "",
+                "folders": get_folders(), "recent_searches": get_recent_searches(),
+                "recent_results": get_recent_results()   # ✅ added
+            }
         )
 
     except Exception as e:
@@ -237,7 +306,8 @@ def search_ui_get(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="index.html",
-        context={"stats": status(), "msg": "", "folders": get_folders(), "recent_searches": get_recent_searches()}
+        context={"stats": status(), "msg": "", "folders": get_folders(),
+                "recent_searches": get_recent_searches(), "recent_results": get_recent_results()}
     )
 
 @app.post("/clear-searches")
@@ -455,6 +525,18 @@ def clear_report():
     progress["processed"] = 0
     progress["current_file"] = ""
     return {"status": "cleared"}
+
+@app.post("/clear-recent-results")
+def clear_recent_results():
+    try:
+        conn = sqlite3.connect(DB_LOCATION)
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM recent_results")
+        conn.commit()
+        conn.close()
+        return {"status": "cleared"}
+    except Exception as e:
+        return {"error": str(e)}
 
 # MOBILE SHARE — wireless file transfer from phone to laptop
 SHARED_FOLDER = os.path.join(os.path.expanduser("~"), "Desktop", "shared")
