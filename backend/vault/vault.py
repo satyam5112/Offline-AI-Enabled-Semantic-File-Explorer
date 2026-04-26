@@ -35,8 +35,8 @@ VAULT_CONFIG      = os.path.join(_VAULT_MODULE_DIR, "vault_config.json")
 os.makedirs(VAULT_DIR, exist_ok=True)
 
 # Print paths on import so we can verify in terminal
-print(f"🔐 Vault config path: {VAULT_CONFIG}")
-print(f"🔐 Vault store path:  {VAULT_DIR}")
+# print(f"🔐 Vault config path: {VAULT_CONFIG}")
+# print(f"🔐 Vault store path:  {VAULT_DIR}")
 
 # ── DB location (reuse app DB) ────────────────────────────────────────────────
 try:

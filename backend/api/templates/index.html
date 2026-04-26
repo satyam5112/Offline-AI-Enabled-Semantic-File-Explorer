@@ -26,18 +26,37 @@
     {% endif %}
 
     <!-- SIDEBAR -->
-    <aside class="sidebar">
-        <div class="logo" style="display:flex; align-items:center; gap:8px;">
-            Menu
+    <aside class="sidebar" id="sidebar">
+        <div class="logo">
+            <div class="logo-icon">
+                <span class="logo-text">DocS AI</span>
+            </div>
+            <button class="toggle-btn" onclick="toggleSidebar()">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 6H20M4 12H20M4 18H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </button>
         </div>
         <nav>
-            <a href="/" class="nav-item active">🔍 Search</a>
-            <a href="/files" class="nav-item">📁 My Files</a>
-            <a href="/vault" class="nav-item">🔒 Vault</a>
+            <a href="/" class="nav-item">
+                <span class="nav-icon">✨</span>
+                <span class="nav-text">Search</span>
+            </a>
+            <a href="/files" class="nav-item">
+                <span class="nav-icon">📄</span>
+                <span class="nav-text">My Files</span>
+            </a>
+            <a href="/vault" class="nav-item">
+                <span class="nav-icon">🔒</span>
+                <span class="nav-text">Vault</span>
+            </a>
         </nav>
         <div class="sidebar-bottom">
-            <button class="btn-reset-nav" onclick="showResetModal()">🗑️ Reset Database</button>
-
+            <button class="btn-reset-nav" onclick="showResetModal()">
+                <span>🗑️</span>
+                <span>Reset Database</span>
+            </button>
+            
             <!-- Reset Modal -->
             <div id="reset-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center;">
                 <div style="background:#1e293b; border-radius:16px; padding:32px; width:380px; border:1px solid #334155; text-align:center;">
@@ -64,20 +83,11 @@
                     </div>
                 </div>
             </div>
-
-            <script>
-                function showResetModal() {
-                    document.getElementById('reset-modal').style.display = 'flex';
-                }
-                function hideResetModal() {
-                    document.getElementById('reset-modal').style.display = 'none';
-                }
-                document.getElementById('reset-modal').addEventListener('click', function(e) {
-                    if (e.target === this) hideResetModal();
-                });
-            </script>
         </div>
     </aside>
+
+<!-- Mobile overlay -->
+<div id="sidebar-overlay" class="sidebar-overlay" onclick="closeSidebarMobile()"></div>
 
     <!-- MAIN -->
     <main class="main">
@@ -110,15 +120,15 @@
         </div>
 
         <!-- SEARCH FORM -->
-        <div class="search-card">
+        <div class="search-card" >
             <div class="search-label">Search your documents</div>
-            <form method="post" action="/search-ui" class="search-row">
+            <form method="post" action="/search-ui" class="search-row" >
                 <input class="search-input" type="text" name="query"
                     id="search-input"
                     placeholder="🔍  Enter search query..."
                     autocomplete="off"
-                    required>
-                <select class="filter-input" name="file_type">
+                    required style="color: #000000;">
+                <select class="filter-input" name="file_type" style="color: #000000;">
                     <option value="">All Types</option>
                     <option value=".txt">📄 Text (.txt)</option>
                     <option value=".pdf">📕 PDF (.pdf)</option>
@@ -126,10 +136,12 @@
                     <option value=".csv">📊 CSV (.csv)</option>
                 </select>
                 <input class="filter-input" type="text" name="folder"
-                    placeholder="Folder name">
+                    id="folder-input"
+                    placeholder="Folder name" style="color: #000000;">
                 <button class="btn-primary" type="submit">Search</button>
             </form>
 
+            <!-- Recent Searches -->
             {% if recent_searches %}
             <div class="recent-searches">
                 <span class="recent-label">Recent:</span>
@@ -423,254 +435,288 @@
          SCRIPTS
     ============================================================ -->
 
-    <!-- Native file picker + notification poller -->
-    <script>
-        let _pickedPaths = [];
-
-        async function pickFilesNative() {
-            try {
-                const res = await fetch('/pick-files');
-                const data = await res.json();
-
-                if (!data.paths || data.paths.length === 0) {
-                    document.getElementById('picked-files-list').style.display = 'none';
-                    document.getElementById('add-files-btn').style.display = 'none';
-                    return;
-                }
-
-                _pickedPaths = data.paths;
-
-                // Show list of selected files
-                const listEl = document.getElementById('picked-files-list');
-                listEl.innerHTML = _pickedPaths.map(p => {
-                    const name = p.split('\\').pop() || p.split('/').pop();
-                    return `<div style="padding:2px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">📄 ${name}</div>`;
-                }).join('');
-                listEl.style.display = 'block';
-                document.getElementById('add-files-btn').style.display = 'block';
-
-            } catch(e) {
-                alert('❌ Failed to open file picker');
-            }
-        }
-
-        async function indexPickedFiles() {
-            if (!_pickedPaths.length) return;
-
-            const form = new FormData();
-            form.append('paths', _pickedPaths.join('|'));
-
-            const res = await fetch('/index-files-by-path', {
-                method: 'POST',
-                body: form
-            });
-
-            // Server redirects with msg — follow it
-            window.location.href = res.url;
-        }
-
-        setInterval(async () => {
-            try {
-                const res = await fetch('/notifications');
-                const data = await res.json();
-                if (data.notifications && data.notifications.length > 0) {
-                    data.notifications.forEach(msg => alert(msg));
-                }
-            } catch (e) {}
-        }, 10000);
-    </script>
-
-    <!-- Open file natively -->
-    <script>
-        async function openFile(path) {
-            try {
-                const fixedPath = path.replace(/\//g, "\\");
-                const response = await fetch(`/open-native?path=${encodeURIComponent(fixedPath)}`);
-                const data = await response.json();
-                if (data.error) alert('❌ Could not open file: ' + data.error);
-            } catch (err) {
-                alert('❌ Failed to open file');
-            }
-        }
-    </script>
-
-    <!-- Progress tracker -->
-    <script>
-        setInterval(async () => {
-            try {
-                const res = await fetch("/progress");
-                const data = await res.json();
-
-                const modal = document.getElementById("progress-modal");
-                modal.style.display = data.active ? "block" : "none";
-
-                document.getElementById("total").innerText = data.total;
-                document.getElementById("processed").innerText = data.processed;
-
-                const fileName = (data.current_file || "").split("\\").pop().split("/").pop();
-                document.getElementById("current").innerText = fileName || "Preparing...";
-
-                const percent = data.total > 0 ? Math.round((data.processed / data.total) * 100) : 0;
-                document.getElementById("bar-fill").style.width = percent + "%";
-                document.getElementById("progress-percent").innerText = percent + "%";
-
-                if (data.report_ready) showReport(data);
-            } catch (e) {}
-        }, 1000);
-
-        function showReport(data) {
-            document.getElementById("report-modal").style.display = "flex";
-            document.getElementById("report-summary").innerText = `${data.total} files processed`;
-            document.getElementById("success-count").innerText = data.success_files.length;
-            document.getElementById("failed-count").innerText = data.failed_files.length;
-
-            const successList = document.getElementById("success-list");
-            successList.innerHTML = "";
-            if (data.success_files.length > 0) {
-                data.success_files.forEach(f => {
-                    successList.innerHTML += `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#f0fdf4;border-radius:8px;font-size:12px;color:#166534;"><span>✅</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f}</span></div>`;
-                });
-            } else {
-                document.getElementById("success-section").style.display = "none";
-            }
-
-            const failedList = document.getElementById("failed-list");
-            failedList.innerHTML = "";
-            if (data.failed_files.length > 0) {
-                document.getElementById("failed-section").style.display = "block";
-                data.failed_files.forEach(f => {
-                    failedList.innerHTML += `<div style="display:flex;align-items:center;gap:8px;padding:7px 10px;background:#fef2f2;border-radius:8px;font-size:12px;color:#dc2626;"><span>❌</span><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f}</span></div>`;
-                });
-            }
-        }
-
-        async function closeReport() {
-            document.getElementById("report-modal").style.display = "none";
-            await fetch("/clear-report", { method: "POST" });
-            window.location.reload();
-        }
-    </script>
-
-    <!-- Folder picker -->
-    <script>
-        async function pickFolder() {
-            try {
-                const res = await fetch("/pick-folder");
-                const data = await res.json();
-                if (data.path) {
-                    document.getElementById("selected-folder").innerText = data.path;
-                    document.getElementById("selected-folder").style.color = "#fff";
-                    const formData = new FormData();
-                    formData.append("path", data.path);
-                    await fetch("/add-folder", { method: "POST", body: formData });
-                    window.location.href = "/?msg=success:Folder added successfully";
-                } else {
-                    document.getElementById("selected-folder").innerText = "No folder selected";
-                }
-            } catch (e) {
-                alert("❌ Failed to open folder picker");
-            }
-        }
-    </script>
-
-    <!-- Recent searches -->
-    <script>
-        function setSearch(query) {
-            document.getElementById("search-input").value = query;
-            document.getElementById("search-input").focus();
-        }
-        async function clearSearches() {
-            await fetch("/clear-searches", { method: "POST" });
-            window.location.reload();
-        }
-    </script>
-
+    
     <!-- ============================================================
-         MOBILE SHARE — QR modal + index prompt logic
-         QR rendered using qrcode-svg algorithm (pure JS, no CDN,
-         no img/data: tags — works in PyQt6 WebEngine).
-    ============================================================ -->
-    <script>
-    // ---- QR Modal — uses goqr.me API, returns a real PNG, guaranteed scannable ----
-    async function openQRModal() {
-        document.getElementById('qr-modal').style.display = 'flex';
-        const inner = document.getElementById('qr-inner');
-        inner.innerHTML = '<p style="color:#94a3b8;font-size:13px;padding:24px 16px;text-align:center;">Generating QR...</p>';
+     ALL JAVASCRIPT
+============================================================ -->
+<script>
+    // ---- Native file picker ----
+    let _pickedPaths = [];
 
-        let mobileUrl, folderPath;
+    async function pickFilesNative() {
         try {
-            const res = await fetch('/mobile/qr-info');
+            const res = await fetch('/pick-files');
             const data = await res.json();
-            mobileUrl = data.url;
-            folderPath = data.folder;
+
+            if (!data.paths || data.paths.length === 0) {
+                document.getElementById('picked-files-list').style.display = 'none';
+                document.getElementById('add-files-btn').style.display = 'none';
+                return;
+            }
+
+            _pickedPaths = data.paths;
+
+            const listEl = document.getElementById('picked-files-list');
+            listEl.innerHTML = _pickedPaths.map(p => {
+                const name = p.split('\\').pop() || p.split('/').pop();
+                return `<div style="padding:2px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">📄 ${name}</div>`;
+            }).join('');
+            listEl.style.display = 'block';
+            document.getElementById('add-files-btn').style.display = 'block';
+
         } catch(e) {
-            inner.innerHTML = '<p style="color:#ef4444;font-size:12px;padding:16px;text-align:center;">Could not reach server.<br>Is it running?</p>';
-            return;
+            alert('❌ Failed to open file picker');
         }
-
-        // goqr.me — free, no auth, returns PNG directly, highly scannable
-        // size=300x300, ecc=M (medium error correction, good balance)
-        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=260x260&ecc=M&margin=10&data=${encodeURIComponent(mobileUrl)}`;
-
-        inner.innerHTML = `<img src="${qrApiUrl}"
-            width="260" height="260"
-            style="display:block; border-radius:8px;"
-            alt="QR Code"
-            onerror="this.parentElement.innerHTML='<p style=\'color:#ef4444;font-size:12px;padding:16px;text-align:center;\'>QR load failed.<br>Check internet connection.</p>'"
-        />`;
-
-        document.getElementById('qr-url-chip').textContent = mobileUrl;
-        document.getElementById('ms-folder-path').textContent = folderPath;
     }
 
-    function closeQRModal() {
-        document.getElementById('qr-modal').style.display = 'none';
+    async function indexPickedFiles() {
+        if (!_pickedPaths.length) return;
+        const form = new FormData();
+        form.append('paths', _pickedPaths.join('|'));
+        const res = await fetch('/index-files-by-path', {
+            method: 'POST',
+            body: form
+        });
+        window.location.href = res.url;
     }
 
-    function closeQROnBackdrop(e) {
-        if (e.target.id === 'qr-modal') closeQRModal();
+    // ---- Open file natively ----
+    async function openFile(path) {
+        try {
+            const fixedPath = path.replace(/\//g, "\\");
+            const response = await fetch(
+                `/open-native?path=${encodeURIComponent(fixedPath)}`
+            );
+            const data = await response.json();
+            if (data.error) {
+                alert('❌ Could not open file: ' + data.error);
+            }
+        } catch (err) {
+            alert('❌ Failed to open file');
+        }
     }
 
-    // ---- Poll for incoming files every 4 seconds ----
-    let _shownIndexPrompt = false;
+    // ---- Recent searches ----
+    function setSearch(query) {
+        document.getElementById('search-input').value = query;
+        document.getElementById('search-input').focus();
+    }
 
+    async function clearSearches() {
+        await fetch('/clear-searches', { method: 'POST' });
+        window.location.reload();
+    }
+
+    // ---- Recent results ----
+    async function clearRecentResults() {
+        await fetch('/clear-recent-results', { method: 'POST' });
+        window.location.reload();
+    }
+
+    // ---- Folder picker ----
+    async function pickFolder() {
+        try {
+            const res = await fetch('/pick-folder');
+            const data = await res.json();
+            if (data.path) {
+                document.getElementById('selected-folder').innerText = data.path;
+                document.getElementById('selected-folder').style.color = '#000';
+                const formData = new FormData();
+                formData.append('path', data.path);
+                await fetch('/add-folder', { method: 'POST', body: formData });
+                window.location.href = '/?msg=success:Folder added successfully';
+            } else {
+                document.getElementById('selected-folder').innerText = 'No folder selected';
+            }
+        } catch (e) {
+            alert('❌ Failed to open folder picker');
+        }
+    }
+
+    // ---- Progress tracker ----
     setInterval(async () => {
         try {
-            const res = await fetch('/mobile/pending');
+            const res = await fetch("/progress");
             const data = await res.json();
-            if (data.active && data.files.length > 0 && !_shownIndexPrompt) {
-                _shownIndexPrompt = true;
-                showIndexPrompt(data.files, data.folder);
+
+            const modal = document.getElementById("progress-modal");
+            modal.style.display = data.active ? "block" : "none";
+
+            document.getElementById("total").innerText = data.total;
+            document.getElementById("processed").innerText = data.processed;
+
+            const fileName = (data.current_file || "").split("\\").pop().split("/").pop();
+            document.getElementById("current").innerText = fileName || "Preparing...";
+
+            const percent = data.total > 0
+                ? Math.round((data.processed / data.total) * 100) : 0;
+            document.getElementById("bar-fill").style.width = percent + "%";
+            document.getElementById("progress-percent").innerText = percent + "%";
+
+            if (data.report_ready) showReport(data);
+        } catch (e) {}
+    }, 1000);
+
+    function showReport(data) {
+        document.getElementById("report-modal").style.display = "flex";
+        document.getElementById("report-summary").innerText = `${data.total} files processed`;
+        document.getElementById("success-count").innerText = data.success_files.length;
+        document.getElementById("failed-count").innerText = data.failed_files.length;
+
+        const successList = document.getElementById("success-list");
+        successList.innerHTML = "";
+        if (data.success_files.length > 0) {
+            data.success_files.forEach(f => {
+                successList.innerHTML += `
+                    <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;
+                                background:#f0fdf4;border-radius:8px;font-size:12px;color:#166534;">
+                        <span>✅</span>
+                        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f}</span>
+                    </div>`;
+            });
+        } else {
+            document.getElementById("success-section").style.display = "none";
+        }
+
+        const failedList = document.getElementById("failed-list");
+        failedList.innerHTML = "";
+        if (data.failed_files.length > 0) {
+            document.getElementById("failed-section").style.display = "block";
+            data.failed_files.forEach(f => {
+                failedList.innerHTML += `
+                    <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;
+                                background:#fef2f2;border-radius:8px;font-size:12px;color:#dc2626;">
+                        <span>❌</span>
+                        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f}</span>
+                    </div>`;
+            });
+        }
+    }
+
+    async function closeReport() {
+        document.getElementById("report-modal").style.display = "none";
+        await fetch("/clear-report", { method: "POST" });
+        window.location.reload();
+    }
+
+    // ---- Notifications ----
+    setInterval(async () => {
+        try {
+            const res = await fetch('/notifications');
+            const data = await res.json();
+            if (data.notifications && data.notifications.length > 0) {
+                data.notifications.forEach(msg => alert(msg));
             }
         } catch (e) {}
-    }, 4000);
+    }, 5000);
 
-    function showIndexPrompt(files, folder) {
-        const list = document.getElementById('received-files-list');
-        list.innerHTML = files.map(f =>
-            `<div class="ms-file-row">📄 ${f}</div>`
-        ).join('');
-        document.getElementById('index-modal').dataset.folder = folder;
-        document.getElementById('index-modal').style.display = 'flex';
+</script>
+
+<!-- Sidebar Toggle JavaScript -->
+<script>
+    const sidebar = document.getElementById('sidebar');
+    const main = document.querySelector('.main');
+    const overlay = document.getElementById('sidebar-overlay');
+
+    function toggleSidebar() {
+        const isMobile = window.innerWidth <= 768;
+        if (isMobile) {
+            sidebar.classList.toggle('mobile-open');
+            if (overlay) overlay.classList.toggle('active');
+            localStorage.setItem('sidebarMobileOpen', sidebar.classList.contains('mobile-open'));
+        } else {
+            sidebar.classList.toggle('collapsed');
+            if (main) main.classList.toggle('expanded');
+            localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+        }
     }
 
-    async function indexSharedFolder() {
-        const folder = document.getElementById('index-modal').dataset.folder;
-        document.getElementById('index-modal').style.display = 'none';
-        _shownIndexPrompt = false;
-        await fetch('/mobile/dismiss-prompt', { method: 'POST' });
-        const form = new FormData();
-        form.append('path', folder);
-        await fetch('/add-folder', { method: 'POST', body: form });
-        window.location.href = '/?msg=success:Shared files queued for indexing';
+    function closeSidebarMobile() {
+        if (window.innerWidth <= 768) {
+            sidebar.classList.remove('mobile-open');
+            if (overlay) overlay.classList.remove('active');
+            localStorage.setItem('sidebarMobileOpen', false);
+        }
     }
 
-    async function dismissIndexPrompt() {
-        document.getElementById('index-modal').style.display = 'none';
-        _shownIndexPrompt = false;
-        await fetch('/mobile/dismiss-prompt', { method: 'POST' });
-    }
-    </script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const isMobile = window.innerWidth <= 768;
+        if (isMobile) {
+            const wasOpen = localStorage.getItem('sidebarMobileOpen') === 'true';
+            if (wasOpen) {
+                sidebar.classList.add('mobile-open');
+                if (overlay) overlay.classList.add('active');
+            }
+        } else {
+            const savedState = localStorage.getItem('sidebarCollapsed');
+            if (savedState === 'true') {
+                sidebar.classList.add('collapsed');
+                if (main) main.classList.add('expanded');
+            }
+        }
+    });
 
+    let resizeTimer;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function() {
+            const isMobile = window.innerWidth <= 768;
+            if (isMobile) {
+                if (sidebar.classList.contains('collapsed')) {
+                    sidebar.classList.remove('collapsed');
+                    if (main) main.classList.remove('expanded');
+                }
+                sidebar.classList.remove('mobile-open');
+                if (overlay) overlay.classList.remove('active');
+            } else {
+                sidebar.classList.remove('mobile-open');
+                if (overlay) overlay.classList.remove('active');
+                const savedState = localStorage.getItem('sidebarCollapsed');
+                if (savedState === 'true') {
+                    sidebar.classList.add('collapsed');
+                    if (main) main.classList.add('expanded');
+                } else {
+                    sidebar.classList.remove('collapsed');
+                    if (main) main.classList.remove('expanded');
+                }
+            }
+        }, 150);
+    });
+
+    function showResetModal() {
+        const modal = document.getElementById('reset-modal');
+        if (modal) modal.style.display = 'flex';
+    }
+
+    function hideResetModal() {
+        const modal = document.getElementById('reset-modal');
+        if (modal) modal.style.display = 'none';
+    }
+
+    const resetModal = document.getElementById('reset-modal');
+    if (resetModal) {
+        resetModal.addEventListener('click', function(e) {
+            if (e.target === this) hideResetModal();
+        });
+    }
+
+    function updateActiveNav() {
+        const currentPath = window.location.pathname;
+        const navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(item => {
+            const href = item.getAttribute('href');
+            if ((href === currentPath) ||
+                (currentPath === '/' && href === '/') ||
+                (currentPath === '/files' && href === '/files') ||
+                (currentPath === '/vault' && href === '/vault')) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+    }
+
+    updateActiveNav();
+</script>
 </body>
 </html>

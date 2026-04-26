@@ -9,21 +9,38 @@
 <body>
 
     <!-- SIDEBAR -->
-    <aside class="sidebar">
+    <aside class="sidebar" id="sidebar">
         <div class="logo">
-            <!-- <div class="logo-icon">D</div> -->
-            Menu
+            <div class="logo-icon">
+                <span class="logo-text">DocS AI</span>
+            </div>
+            <button class="toggle-btn" onclick="toggleSidebar()">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 6H20M4 12H20M4 18H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </button>
         </div>
         <nav>
-            <a href="/" class="nav-item">🔍 Search</a>
-            <a href="/files" class="nav-item active">📁 My Files</a>
-            <a href="/vault" class="nav-item">🔒 Vault</a>
+            <a href="/" class="nav-item">
+                <span class="nav-icon">✨</span>
+                <span class="nav-text">Search</span>
+            </a>
+            <a href="/files" class="nav-item">
+                <span class="nav-icon">📄</span>
+                <span class="nav-text">My Files</span>
+            </a>
+            <a href="/vault" class="nav-item">
+                <span class="nav-icon">🔒</span>
+                <span class="nav-text">Vault</span>
+            </a>
         </nav>
         <div class="sidebar-bottom">
-            <!-- ✅ Replace with this -->
-            <button class="btn-reset-nav" onclick="showResetModal()">🗑️ Reset Database</button>
-
-            <!-- Custom Reset Modal -->
+            <button class="btn-reset-nav" onclick="showResetModal()">
+                <span>🗑️</span>
+                <span>Reset Database</span>
+            </button>
+            
+            <!-- Reset Modal -->
             <div id="reset-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center;">
                 <div style="background:#1e293b; border-radius:16px; padding:32px; width:380px; border:1px solid #334155; text-align:center;">
                     <div style="font-size:40px; margin-bottom:16px;">⚠️</div>
@@ -49,23 +66,11 @@
                     </div>
                 </div>
             </div>
-
-            <script>
-                function showResetModal() {
-                    const modal = document.getElementById('reset-modal');
-                    modal.style.display = 'flex';
-                }
-                function hideResetModal() {
-                    const modal = document.getElementById('reset-modal');
-                    modal.style.display = 'none';
-                }
-                // Close on outside click
-                document.getElementById('reset-modal').addEventListener('click', function(e) {
-                    if (e.target === this) hideResetModal();
-                });
-            </script>
         </div>
     </aside>
+
+<!-- Mobile overlay -->
+<div id="sidebar-overlay" class="sidebar-overlay" onclick="closeSidebarMobile()"></div>
 
     <!-- MAIN -->
     <main class="main">
@@ -375,5 +380,138 @@
             </div>
         </div>
     </div>
+    <!-- Sidebar Toggle JavaScript -->
+<script>
+    // Get elements
+    const sidebar = document.getElementById('sidebar');
+    const main = document.querySelector('.main');
+    const overlay = document.getElementById('sidebar-overlay');
+    
+    // Toggle sidebar function
+    function toggleSidebar() {
+        const isMobile = window.innerWidth <= 768;
+        
+        if (isMobile) {
+            // Mobile behavior - slide in/out
+            sidebar.classList.toggle('mobile-open');
+            if (overlay) {
+                overlay.classList.toggle('active');
+            }
+            localStorage.setItem('sidebarMobileOpen', sidebar.classList.contains('mobile-open'));
+        } else {
+            // Desktop behavior - collapse/expand
+            sidebar.classList.toggle('collapsed');
+            if (main) {
+                main.classList.toggle('expanded');
+            }
+            // Save state to localStorage
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            localStorage.setItem('sidebarCollapsed', isCollapsed);
+        }
+    }
+    
+    // Close sidebar on mobile (when clicking overlay)
+    function closeSidebarMobile() {
+        if (window.innerWidth <= 768) {
+            sidebar.classList.remove('mobile-open');
+            if (overlay) {
+                overlay.classList.remove('active');
+            }
+            localStorage.setItem('sidebarMobileOpen', false);
+        }
+    }
+    
+    // Load saved state on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const isMobile = window.innerWidth <= 768;
+        
+        if (isMobile) {
+            // Mobile - load mobile state
+            const wasOpen = localStorage.getItem('sidebarMobileOpen') === 'true';
+            if (wasOpen) {
+                sidebar.classList.add('mobile-open');
+                if (overlay) overlay.classList.add('active');
+            }
+        } else {
+            // Desktop - load collapsed state
+            const savedState = localStorage.getItem('sidebarCollapsed');
+            if (savedState === 'true') {
+                sidebar.classList.add('collapsed');
+                if (main) main.classList.add('expanded');
+            }
+        }
+    });
+    
+    // Handle window resize
+    let resizeTimer;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function() {
+            const isMobile = window.innerWidth <= 768;
+            
+            if (isMobile) {
+                // Switching to mobile view
+                if (sidebar.classList.contains('collapsed')) {
+                    sidebar.classList.remove('collapsed');
+                    if (main) main.classList.remove('expanded');
+                }
+                sidebar.classList.remove('mobile-open');
+                if (overlay) overlay.classList.remove('active');
+            } else {
+                // Switching to desktop view
+                sidebar.classList.remove('mobile-open');
+                if (overlay) overlay.classList.remove('active');
+                const savedState = localStorage.getItem('sidebarCollapsed');
+                if (savedState === 'true') {
+                    sidebar.classList.add('collapsed');
+                    if (main) main.classList.add('expanded');
+                } else {
+                    sidebar.classList.remove('collapsed');
+                    if (main) main.classList.remove('expanded');
+                }
+            }
+        }, 150);
+    });
+    
+    // Reset modal functions
+    function showResetModal() {
+        const modal = document.getElementById('reset-modal');
+        if (modal) modal.style.display = 'flex';
+    }
+    
+    function hideResetModal() {
+        const modal = document.getElementById('reset-modal');
+        if (modal) modal.style.display = 'none';
+    }
+    
+    // Close modal when clicking outside
+    const resetModal = document.getElementById('reset-modal');
+    if (resetModal) {
+        resetModal.addEventListener('click', function(e) {
+            if (e.target === this) hideResetModal();
+        });
+    }
+    
+    // Update active nav item based on current page
+    function updateActiveNav() {
+        const currentPath = window.location.pathname;
+        const navItems = document.querySelectorAll('.nav-item');
+        
+        navItems.forEach(item => {
+            const href = item.getAttribute('href');
+            if ((href === currentPath) || 
+                (currentPath === '/' && href === '/') ||
+                (currentPath === '/files' && href === '/files') ||
+                (currentPath === '/vault' && href === '/vault')) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+    }
+    
+    // Call on load
+    updateActiveNav();
+</script>
 </body>
 </html>
