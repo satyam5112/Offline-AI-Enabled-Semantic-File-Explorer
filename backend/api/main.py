@@ -470,7 +470,21 @@ def clear_report():
 # ================================================================
 # MOBILE SHARE — wireless file transfer from phone to laptop
 # ================================================================
-SHARED_FOLDER = os.path.join(os.path.expanduser("~"), "Desktop", "shared")
+def get_desktop_path():
+    user = os.environ["USERPROFILE"]
+
+    # Check OneDrive Desktop first (common in Windows)
+    onedrive_path = os.path.join(user, "OneDrive", "Desktop")
+
+    # Fallback to normal Desktop
+    normal_path = os.path.join(user, "Desktop")
+
+    if os.path.exists(onedrive_path):
+        return onedrive_path
+    return normal_path
+
+
+SHARED_FOLDER = os.path.join(get_desktop_path(), "shared")
 os.makedirs(SHARED_FOLDER, exist_ok=True)
 
 # Tracks files received from phone, waiting for user to confirm indexing
@@ -498,6 +512,25 @@ def mobile_qr_info():
         "folder": SHARED_FOLDER
     }
 
+@app.post("/mobile/index")
+def index_mobile_files():
+    try:
+        folder = _mobile_pending["folder"]
+        files = _mobile_pending["files"]
+
+        print("🚀 Starting batch indexing...")
+        scan_folder(SHARED_FOLDER)
+        print("✅ Batch indexing completed")
+
+        # Reset state
+        _mobile_pending["active"] = False
+        _mobile_pending["files"] = []
+
+        return {"status": "indexed"}
+
+    except Exception as e:
+        print(f"❌ Indexing error: {e}")
+        return {"status": "error", "detail": str(e)}
 
 @app.get("/mobile", response_class=None)
 def mobile_page():
@@ -718,9 +751,31 @@ async def mobile_upload(file: UploadFile = File(...)):
 @app.post("/mobile/transfer-complete")
 async def mobile_transfer_complete():
     """Phone calls this when all files are done uploading."""
+
     _mobile_pending["active"] = True
     _mobile_pending["folder"] = SHARED_FOLDER
+
     print(f"📱 Transfer complete — {len(_mobile_pending['files'])} file(s) ready to index")
+    try:
+        conn = sqlite3.connect(DB_LOCATION)
+        cursor = conn.cursor()
+        cursor.execute("SELECT path FROM watched_folders WHERE path = ?", (SHARED_FOLDER,))
+        exists = cursor.fetchone()
+
+        if not exists:
+            cursor.execute(
+                "INSERT INTO watched_folders (path) VALUES (?)",
+                (SHARED_FOLDER,)
+            )
+            conn.commit()
+            
+            start_watching(SHARED_FOLDER)
+
+        conn.close()
+
+    except Exception as e:
+        print(f"❌ Error saving shared folder: {e}")
+
     return {"status": "prompt_pending"}
 
 

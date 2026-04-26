@@ -282,7 +282,7 @@
                     {% else %}
                         <div class="watched-empty">
                             <div style="font-size:24px; margin-bottom:6px;">📂</div>
-                            <div>No folders being watched</div>
+                            <div style="color:#000000">No folders being watched</div>
                             <div style="margin-top:4px; font-size:11px;">Add a folder to start indexing</div>
                         </div>
                     {% endif %}
@@ -430,15 +430,11 @@
             </div>
         </div>
     </div>
-
-    <!-- ============================================================
-         SCRIPTS
-    ============================================================ -->
-
     
     <!-- ============================================================
      ALL JAVASCRIPT
-============================================================ -->
+    ============================================================ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
 <script>
     // ---- Native file picker ----
     let _pickedPaths = [];
@@ -717,6 +713,94 @@
     }
 
     updateActiveNav();
+
+</script>
+<script>
+let qrInstance = null;
+
+async function openQRModal() {
+    const modal = document.getElementById("qr-modal");
+    const qrContainer = document.getElementById("qr-inner");
+    const urlChip = document.getElementById("qr-url-chip");
+    const folderPath = document.getElementById("ms-folder-path");
+
+    modal.style.display = "flex";
+
+    // Show loading
+    qrContainer.innerHTML = "Loading QR...";
+    urlChip.textContent = "Loading...";
+
+    try {
+        const res = await fetch("/mobile/qr-info");
+        const data = await res.json();
+
+        const url = data.url;
+        const folder = data.folder;
+
+        // Clear previous QR
+        qrContainer.innerHTML = "";
+
+        // Generate QR
+        qrInstance = new QRCode(qrContainer, {
+            text: url,
+            width: 200,
+            height: 200
+        });
+
+        // Show URL + folder
+        urlChip.textContent = url;
+        folderPath.textContent = folder;
+
+    } catch (err) {
+        qrContainer.innerHTML = "❌ Failed to load QR";
+        console.error(err);
+    }
+}
+
+function closeQRModal() {
+    document.getElementById("qr-modal").style.display = "none";
+}
+
+function closeQROnBackdrop(e) {
+    if (e.target.id === "qr-modal") {
+        closeQRModal();
+    }
+}
+</script>
+<script>
+async function checkMobileUploads() {
+    try {
+        const res = await fetch("/mobile/pending");
+        const data = await res.json();
+
+        if (data.active && data.files.length > 0) {
+            showIndexPopup(data.files);
+        }
+    } catch (e) {
+        console.error("Polling error:", e);
+    }
+}
+
+// Check every 3 seconds
+setInterval(checkMobileUploads, 3000);
+</script>
+<script>
+function showIndexPopup(files) {
+    const fileList = files.join("\n");
+
+    const userChoice = confirm(
+        `📱 Files received:\n\n${fileList}\n\nDo you want to index them now?`
+    );
+
+    if (userChoice) {
+        // 🔥 CALL YOUR INDEXING ROUTE HERE (if exists)
+        fetch("/mobile/dismiss-prompt", { method: "POST" });
+        
+        alert("✅ Indexing started!");
+    } else {
+        fetch("/mobile/dismiss-prompt", { method: "POST" });
+    }
+}
 </script>
 </body>
 </html>

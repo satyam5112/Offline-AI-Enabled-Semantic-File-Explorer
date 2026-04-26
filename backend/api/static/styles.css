@@ -869,7 +869,8 @@ body {
 .result-name {
     font-size: 14px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--text-secondary);
+    /* color:rgb(0, 0, 0); */
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1051,7 +1052,7 @@ body {
 .watched-path {
     font-size: 13px;
     font-weight: 600;
-    color: var(--text-primary);
+    color: var(--text-secondary);
 }
 
 .watched-full-path {
@@ -1175,7 +1176,7 @@ body {
     bottom: 28px;
     right: 28px;
     width: 340px;
-    background: rgba(15, 20, 30, 0.95);
+    background: rgba(255, 255, 255, 0.85);
     backdrop-filter: blur(20px);
     border: 1px solid var(--border-glow);
     border-radius: 20px;
@@ -1196,7 +1197,7 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-    color: var(--text-primary);
+    color: var(--text-secondary);
     font-size: 13px;
     font-weight: 600;
 }
