@@ -1,48 +1,33 @@
 /* ============================================================
-   VAULT.CSS — Hidden Vault feature styles
-   Dark, premium, security-themed aesthetic
-   Font: Space Grotesk + JetBrains Mono
+   VAULT.CSS - Premium Dark Theme for Vault
+   Matches main design with luxury gradient accents
 ============================================================ */
 
-/* ── Body override for vault page ── */
 .vault-body {
-    background: #080b14;
-    font-family: 'Space Grotesk', -apple-system, sans-serif;
+    background: linear-gradient(135deg, #080b14 0%, #0a0f1a 100%);
+    font-family: 'Inter', -apple-system, sans-serif;
 }
 
+/* Sidebar override for vault */
 .vault-body .sidebar {
-    background: #060910;
-    border-right: 1px solid #1a1f2e;
+    background: rgba(8, 11, 20, 0.95);
+    backdrop-filter: blur(20px);
+    border-right: 1px solid rgba(99, 102, 241, 0.15);
 }
 
-.vault-body .sidebar .logo {
-    border-bottom-color: #1a1f2e;
+.vault-body .logo {
+    background: linear-gradient(135deg, #6366f1, #a78bfa, #22d3ee);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
 }
 
-.vault-body .sidebar .nav-item {
-    color: #4a5568;
-}
-
-.vault-body .sidebar .nav-item:hover {
-    background: #0f1420;
-    color: #a0aec0;
-}
-
-.vault-body .sidebar .nav-item.active {
-    background: linear-gradient(135deg, rgba(99,102,241,0.2), rgba(139,92,246,0.15));
+.vault-body .nav-item.active {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(139, 92, 246, 0.15));
     color: #a78bfa;
-    border: 1px solid rgba(99,102,241,0.3);
 }
 
-.vault-body .sidebar-bottom {
-    border-top-color: #1a1f2e;
-}
-
-.vault-main {
-    background: #080b14;
-}
-
-/* ── Lock Screen ────────────────────────────────────────── */
+/* Lock Screen - Premium Glass */
 .lock-screen {
     display: flex;
     align-items: center;
@@ -52,105 +37,84 @@
 }
 
 .lock-card {
-    background: linear-gradient(145deg, #0d1117, #0f1420);
-    border: 1px solid #1e2a3a;
-    border-radius: 24px;
+    background: rgba(15, 20, 30, 0.8);
+    backdrop-filter: blur(20px);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 32px;
     padding: 48px 40px;
     width: 100%;
-    max-width: 400px;
+    max-width: 420px;
     text-align: center;
-    box-shadow:
-        0 0 0 1px rgba(99,102,241,0.1),
-        0 32px 64px rgba(0,0,0,0.6),
-        0 0 80px rgba(99,102,241,0.05);
+    box-shadow: 0 32px 64px rgba(0, 0, 0, 0.4);
     position: relative;
     overflow: hidden;
 }
 
-/* Subtle glow effect behind the card */
 .lock-card::before {
     content: '';
     position: absolute;
-    top: -60px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 200px;
-    height: 200px;
-    background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%);
-    pointer-events: none;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #6366f1, #8b5cf6, #22d3ee);
 }
 
 .lock-icon-wrap {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    margin-bottom: 24px;
+    margin-bottom: 28px;
     animation: float 3s ease-in-out infinite;
 }
 
 @keyframes float {
     0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-6px); }
+    50% { transform: translateY(-8px); }
 }
 
 .lock-svg {
-    width: 80px;
-    height: 80px;
-    filter: drop-shadow(0 8px 24px rgba(99,102,241,0.4));
-}
-
-.shackle {
-    transform-origin: 42px 36px;
-    animation: shackle-move 4s ease-in-out infinite;
-}
-
-@keyframes shackle-move {
-    0%, 60%, 100% { transform: translateY(0); }
-    30% { transform: translateY(-6px); }
+    width: 88px;
+    height: 88px;
+    filter: drop-shadow(0 8px 24px rgba(99, 102, 241, 0.4));
 }
 
 .lock-title {
-    font-family: 'Space Grotesk', sans-serif;
-    font-size: 26px;
-    font-weight: 700;
-    color: #f1f5f9;
-    margin-bottom: 6px;
-    letter-spacing: -0.5px;
+    font-size: 28px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #f1f5f9, #c7d2fe);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    margin-bottom: 8px;
 }
 
 .lock-sub {
     font-size: 13px;
-    color: #475569;
+    color: #6b7a93;
     margin-bottom: 32px;
 }
 
 .lock-error {
-    background: rgba(239,68,68,0.1);
-    border: 1px solid rgba(239,68,68,0.3);
-    border-radius: 10px;
-    padding: 10px 16px;
+    background: rgba(239, 68, 68, 0.1);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    border-radius: 12px;
+    padding: 12px 16px;
     font-size: 13px;
     color: #f87171;
     margin-bottom: 20px;
 }
 
-.lock-form {
-    margin-bottom: 16px;
-}
-
 .pin-row {
     display: flex;
     gap: 0;
-    border: 1.5px solid #1e2a3a;
-    border-radius: 14px;
+    border: 1.5px solid rgba(99, 102, 241, 0.2);
+    border-radius: 16px;
     overflow: hidden;
-    transition: border-color 0.2s;
-    background: #0a0f1a;
+    transition: all 0.2s ease;
+    background: rgba(10, 12, 20, 0.8);
 }
 
 .pin-row:focus-within {
     border-color: #6366f1;
-    box-shadow: 0 0 0 3px rgba(99,102,241,0.15);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.15);
 }
 
 .pin-input {
@@ -158,47 +122,44 @@
     background: transparent;
     border: none;
     outline: none;
-    padding: 14px 18px;
+    padding: 16px 20px;
     font-size: 16px;
-    color: #f1f5f9;
-    font-family: 'JetBrains Mono', monospace;
-    letter-spacing: 3px;
+    color: #e8edf5;
+    font-family: 'Inter', monospace;
+    letter-spacing: 2px;
 }
 
 .pin-input::placeholder {
-    color: #334155;
-    letter-spacing: 0;
-    font-family: 'Space Grotesk', sans-serif;
+    color: #4a5568;
+    letter-spacing: normal;
     font-size: 14px;
 }
 
 .pin-submit {
     background: linear-gradient(135deg, #6366f1, #8b5cf6);
     border: none;
-    padding: 0 20px;
+    padding: 0 24px;
     cursor: pointer;
-    color: #fff;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: opacity 0.15s;
+    color: white;
+    transition: all 0.2s ease;
 }
 
-.pin-submit:hover { opacity: 0.85; }
+.pin-submit:hover {
+    opacity: 0.9;
+}
 
 .lock-hint {
     font-size: 12px;
-    color: #334155;
+    color: #4a5568;
     margin-bottom: 28px;
 }
 
 .lock-hint code {
-    font-family: 'JetBrains Mono', monospace;
-    color: #6366f1;
-    font-size: 12px;
-    background: rgba(99,102,241,0.1);
-    padding: 1px 6px;
-    border-radius: 4px;
+    font-family: monospace;
+    color: #a78bfa;
+    background: rgba(99, 102, 241, 0.1);
+    padding: 2px 8px;
+    border-radius: 6px;
 }
 
 .lock-stats {
@@ -207,64 +168,48 @@
     justify-content: center;
     gap: 24px;
     padding-top: 24px;
-    border-top: 1px solid #1a2030;
-}
-
-.lock-stat {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 2px;
+    border-top: 1px solid rgba(99, 102, 241, 0.1);
 }
 
 .lock-stat-val {
-    font-size: 22px;
-    font-weight: 700;
-    color: #6366f1;
-    font-family: 'JetBrains Mono', monospace;
+    font-size: 24px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #a78bfa, #22d3ee);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
 }
 
 .lock-stat-label {
     font-size: 11px;
-    color: #334155;
+    font-weight: 600;
+    color: #6b7a93;
     text-transform: uppercase;
-    letter-spacing: 0.08em;
 }
 
-.lock-stat-divider {
-    width: 1px;
-    height: 32px;
-    background: #1a2030;
-}
-
-/* Shake animation on wrong password */
+/* Shake animation */
 @keyframes shake {
     0%, 100% { transform: translateX(0); }
-    15% { transform: translateX(-8px); }
-    30% { transform: translateX(8px); }
-    45% { transform: translateX(-6px); }
-    60% { transform: translateX(6px); }
-    75% { transform: translateX(-3px); }
-    90% { transform: translateX(3px); }
+    10%, 30%, 50%, 70%, 90% { transform: translateX(-6px); }
+    20%, 40%, 60%, 80% { transform: translateX(6px); }
 }
 
-.shake { animation: shake 0.6s ease; }
+.shake {
+    animation: shake 0.5s ease;
+}
 
-/* ── Unlocked Vault Header ──────────────────────────────── */
+/* Unlocked Vault Styles */
 .vault-unlocked-icon {
-    filter: drop-shadow(0 0 8px rgba(99,102,241,0.6));
+    filter: drop-shadow(0 0 12px rgba(99, 102, 241, 0.6));
 }
 
 .default-pw-warning {
-    background: rgba(251,191,36,0.1);
-    border: 1px solid rgba(251,191,36,0.3);
-    border-radius: 10px;
-    padding: 8px 14px;
+    background: rgba(251, 191, 36, 0.1);
+    border: 1px solid rgba(251, 191, 36, 0.2);
+    border-radius: 12px;
+    padding: 8px 16px;
     font-size: 12px;
     color: #fbbf24;
-    display: flex;
-    align-items: center;
-    gap: 6px;
 }
 
 .inline-link {
@@ -274,240 +219,184 @@
     text-decoration: underline;
     cursor: pointer;
     font-size: 12px;
-    padding: 0;
-    font-weight: 600;
 }
 
-/* ── Vault action buttons in topbar ─────────────────────── */
+/* Vault Action Buttons */
 .vault-action-btn {
-    padding: 9px 18px;
-    border-radius: 10px;
+    padding: 10px 20px;
+    border-radius: 12px;
     font-size: 13px;
     font-weight: 600;
     cursor: pointer;
-    border: none;
-    transition: all 0.15s;
-    font-family: 'Space Grotesk', sans-serif;
+    transition: all 0.2s ease;
 }
 
 .vault-btn-secondary {
-    background: rgba(99,102,241,0.1);
+    background: rgba(99, 102, 241, 0.1);
     color: #a78bfa;
-    border: 1px solid rgba(99,102,241,0.3);
+    border: 1px solid rgba(99, 102, 241, 0.2);
 }
 
 .vault-btn-secondary:hover {
-    background: rgba(99,102,241,0.2);
+    background: rgba(99, 102, 241, 0.2);
+    transform: translateY(-1px);
 }
 
 .vault-btn-lock {
     background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    color: #fff;
-    box-shadow: 0 4px 16px rgba(99,102,241,0.3);
+    color: white;
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.3);
 }
 
 .vault-btn-lock:hover {
-    box-shadow: 0 6px 20px rgba(99,102,241,0.45);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.4);
 }
 
-/* ── Stat cards vault override ──────────────────────────── */
+/* Vault Stat Cards */
 .vault-stat {
-    background: linear-gradient(145deg, #0d1117, #0f1420) !important;
-    border-color: #1e2a3a !important;
-    color: #f1f5f9;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+    background: rgba(20, 25, 40, 0.7) !important;
+    backdrop-filter: blur(10px);
+    border-color: rgba(99, 102, 241, 0.15) !important;
 }
 
-.vault-stat .stat-label { color: #475569 !important; }
-.vault-stat .stat-value { color: #a78bfa !important; }
-
-/* ── Vault file list ────────────────────────────────────── */
+/* Vault File Items */
 .vault-body .results-card {
-    background: linear-gradient(145deg, #0d1117, #0f1420);
-    border-color: #1e2a3a;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    background: rgba(20, 25, 40, 0.7);
+    backdrop-filter: blur(10px);
+    border-color: rgba(99, 102, 241, 0.15);
 }
-
-.vault-body .results-header {
-    border-bottom-color: #1a2030;
-}
-
-.vault-body .results-title { color: #e2e8f0; }
-.vault-body .result-name { color: #e2e8f0 !important; }
 
 .vault-file-item {
-    padding: 14px 20px;
-    border-bottom: 1px solid #0f1520;
+    padding: 16px 24px;
+    border-bottom: 1px solid rgba(99, 102, 241, 0.08);
     display: flex;
-    gap: 14px;
+    gap: 16px;
     align-items: center;
-    transition: background 0.1s;
+    transition: all 0.2s ease;
 }
 
-.vault-file-item:hover { background: rgba(99,102,241,0.04); }
-.vault-file-item:last-child { border-bottom: none; }
+.vault-file-item:hover {
+    background: rgba(99, 102, 241, 0.05);
+    transform: translateX(4px);
+}
 
 .vault-file-meta {
     font-size: 11px;
-    color: #334155;
-    margin-top: 3px;
-    font-family: 'JetBrains Mono', monospace;
+    color: #6b7a93;
+    margin-top: 4px;
 }
 
-.vault-file-actions {
-    display: flex;
-    gap: 6px;
-    flex-shrink: 0;
-}
-
+/* Vault Action Buttons */
 .vault-btn-open, .vault-btn-restore, .vault-btn-delete {
-    padding: 5px 10px;
-    border-radius: 7px;
+    padding: 6px 14px;
+    border-radius: 10px;
     font-size: 12px;
     font-weight: 600;
     cursor: pointer;
-    border: none;
-    transition: all 0.15s;
-    font-family: 'Space Grotesk', sans-serif;
+    transition: all 0.2s ease;
 }
 
 .vault-btn-open {
-    background: rgba(99,102,241,0.15);
+    background: rgba(99, 102, 241, 0.15);
     color: #a78bfa;
-    border: 1px solid rgba(99,102,241,0.25);
+    border: 1px solid rgba(99, 102, 241, 0.2);
 }
-.vault-btn-open:hover { background: rgba(99,102,241,0.25); }
+
+.vault-btn-open:hover {
+    background: rgba(99, 102, 241, 0.25);
+    transform: translateY(-1px);
+}
 
 .vault-btn-restore {
-    background: rgba(34,197,94,0.1);
+    background: rgba(34, 197, 94, 0.1);
     color: #4ade80;
-    border: 1px solid rgba(34,197,94,0.2);
+    border: 1px solid rgba(34, 197, 94, 0.15);
 }
-.vault-btn-restore:hover { background: rgba(34,197,94,0.2); }
+
+.vault-btn-restore:hover {
+    background: rgba(34, 197, 94, 0.15);
+    transform: translateY(-1px);
+}
 
 .vault-btn-delete {
-    background: rgba(239,68,68,0.08);
+    background: rgba(239, 68, 68, 0.1);
     color: #f87171;
-    border: 1px solid rgba(239,68,68,0.15);
+    border: 1px solid rgba(239, 68, 68, 0.15);
 }
-.vault-btn-delete:hover { background: rgba(239,68,68,0.18); }
 
-/* ── Add file panel ─────────────────────────────────────── */
+.vault-btn-delete:hover {
+    background: rgba(239, 68, 68, 0.2);
+    transform: translateY(-1px);
+}
+
+/* Vault Add Card */
 .vault-add-card {
-    background: linear-gradient(145deg, #0d1117, #0f1420) !important;
-    border-color: #1e2a3a !important;
-    box-shadow: 0 4px 24px rgba(0,0,0,0.3);
+    background: rgba(20, 25, 40, 0.7) !important;
+    backdrop-filter: blur(10px);
 }
-
-.vault-body .side-card {
-    background: linear-gradient(145deg, #0d1117, #0f1420);
-    border-color: #1e2a3a;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.3);
-}
-
-.vault-body .side-title { color: #94a3b8; }
 
 .vault-drop-zone {
-    border: 2px dashed #1e2a3a;
-    border-radius: 12px;
-    padding: 28px 16px;
+    background: rgba(10, 12, 20, 0.5);
+    border: 2px dashed rgba(99, 102, 241, 0.3);
+    border-radius: 16px;
+    padding: 32px 16px;
     text-align: center;
     cursor: pointer;
-    margin-bottom: 12px;
-    transition: all 0.15s;
-    background: rgba(99,102,241,0.03);
+    transition: all 0.2s ease;
 }
 
 .vault-drop-zone:hover {
     border-color: #6366f1;
-    background: rgba(99,102,241,0.08);
+    background: rgba(99, 102, 241, 0.05);
+    transform: scale(1.02);
 }
 
 .vault-selected-display {
-    background: rgba(99,102,241,0.08);
-    border: 1px solid rgba(99,102,241,0.2);
-    border-radius: 8px;
-    padding: 8px 12px;
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 12px;
+    padding: 10px 14px;
     font-size: 12px;
     color: #a78bfa;
-    margin-bottom: 10px;
-    word-break: break-all;
-    font-family: 'JetBrains Mono', monospace;
+    margin-bottom: 12px;
 }
 
 .vault-pw-input {
     width: 100%;
-    padding: 10px 14px;
-    background: #0a0f1a;
-    border: 1.5px solid #1e2a3a;
-    border-radius: 10px;
+    padding: 12px 16px;
+    background: rgba(10, 12, 20, 0.8);
+    border: 1.5px solid rgba(99, 102, 241, 0.2);
+    border-radius: 12px;
     font-size: 13px;
-    color: #e2e8f0;
+    color: #e8edf5;
     outline: none;
-    transition: border-color 0.15s;
-    font-family: 'Space Grotesk', sans-serif;
-    margin-bottom: 10px;
+    transition: all 0.2s ease;
 }
 
 .vault-pw-input:focus {
     border-color: #6366f1;
-    box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
 }
 
-.vault-pw-input::placeholder { color: #334155; }
+.vault-pw-input::placeholder {
+    color: #4a5568;
+}
 
-.vault-pw-row { margin-bottom: 10px; }
-
-/* ── Dark override for modal boxes on vault page ─────────── */
+/* Modal Overrides for Vault */
 .vault-body .ms-box {
-    background: linear-gradient(145deg, #0d1117, #0f1420);
-    border-color: #1e2a3a;
+    background: linear-gradient(145deg, #111827, #0f172a);
+    border-color: rgba(99, 102, 241, 0.2);
 }
 
-.vault-body .ms-title { color: #f1f5f9; }
-.vault-body .ms-sub { color: #475569; }
-
-.vault-body .ms-close {
-    background: #0f1420;
-    color: #64748b;
-    border: 1px solid #1e2a3a;
+.vault-body .ms-title {
+    color: #e8edf5;
 }
 
-.vault-body .ms-close:hover { background: rgba(239,68,68,0.15); color: #f87171; }
-
-.vault-body .ms-btn-no {
-    background: transparent;
-    border-color: #1e2a3a;
-    color: #475569;
-}
-
-.vault-body .ms-btn-no:hover {
-    background: #0f1420;
-    color: #94a3b8;
+.vault-body .ms-sub {
+    color: #6b7a93;
 }
 
 .vault-body .btn-primary {
     background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    box-shadow: 0 4px 16px rgba(99,102,241,0.3);
 }
-
-.vault-body .btn-primary:hover {
-    background: linear-gradient(135deg, #5558e8, #7c3aed);
-}
-
-.vault-body .btn-upload {
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-}
-
-.vault-body .btn-upload:hover {
-    background: linear-gradient(135deg, #5558e8, #7c3aed);
-    opacity: 0.9;
-}
-
-/* ── No results dark override ───────────────────────────── */
-.vault-body .no-results { color: #475569; }
-
-/* ── Page title dark override ───────────────────────────── */
-.vault-body .page-title { color: #f1f5f9; }
-.vault-body .page-sub { color: #475569; }
