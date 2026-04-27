@@ -72,19 +72,15 @@ def search_files(query, top_k=30, file_type=None, folder=None):
         query_vector = model.encode([query])
         query_vector = np.array(query_vector).astype("float32")
 
-        # ---- Step 3: FAISS search (extra for filtering) ----
+        # ---- Step 3: FAISS search ----
         distances, indices = index.search(query_vector, top_k * 3)
-        # print("Indices:", indices)
-        # print("Distances:", distances)
-        results = []
+
+        semantic_results = []
 
         for distance, idx in zip(distances[0], indices[0]):
 
-            if distance > 1.5:
+            if distance > 1.5 or idx == -1:
                 continue
-
-            if idx == -1:
-                continue            
 
             cursor.execute("""
                 SELECT f.name, f.path, f.extension, f.folder, vm.chunk_text
@@ -94,80 +90,142 @@ def search_files(query, top_k=30, file_type=None, folder=None):
             """, (int(idx),))
 
             row = cursor.fetchone()
-
             if not row:
                 continue
 
             file_name, file_path, extension, file_folder, chunk_text = row
 
-            # ---- Step 4: Filtering ----
+            # ---- Filtering ----
             if file_type and extension != file_type:
                 continue
 
             if folder and folder not in file_folder:
                 continue
 
-            # ---- Step 5: Scoring ----
+            # ---- Scoring ----
             semantic_score = float(1 / (1 + distance))
             keyword_match = float(keyword_score(chunk_text, clean_words))
 
             final_score = float((0.8 * semantic_score) + (0.2 * keyword_match))
 
-            # threshold = 0.2
-            # if final_score < threshold:
-            #     continue
-
-            # ---- Step 6: Highlight ----
             highlighted_chunk = highlight_text(chunk_text.lower(), clean_words)
-            
-            chunk_text = str(chunk_text)
 
-            results.append({
+            semantic_results.append({
                 "file_name": file_name,
                 "file_path": file_path,
                 "folder": file_folder,
                 "chunk": highlighted_chunk,
-                "score": float(final_score)
+                "score": float(final_score),
+                "source": "semantic"
             })
 
-        # ---- Step 7: Sort by score ----
-        results = sorted(results, key=lambda x: x["score"], reverse=True)
+        # =========================================================
+        # 🔥 NEW: KEYWORD SEARCH (independent of FAISS)
+        # =========================================================
 
-        # ---- Step 8: Remove duplicate files ----
+        keyword_results = []
+
+        if clean_words:
+            conditions = " OR ".join(["vm.chunk_text LIKE ?" for _ in clean_words])
+            values = [f"%{word}%" for word in clean_words]
+
+            cursor.execute(f"""
+                SELECT f.name, f.path, f.extension, f.folder, vm.chunk_text
+                FROM vector_mapping vm
+                JOIN files f ON vm.file_id = f.id
+                WHERE {conditions}
+            """, values)
+
+            rows = cursor.fetchall()
+
+            for row in rows:
+                file_name, file_path, extension, file_folder, chunk_text = row
+
+                if file_type and extension != file_type:
+                    continue
+
+                if folder and folder not in file_folder:
+                    continue
+
+                score = float(keyword_score(chunk_text, clean_words))
+
+                if score == 0:
+                    continue
+
+                # normalize keyword score
+                score = min(score / 10, 1.0)
+
+                keyword_results.append({
+                    "file_name": file_name,
+                    "file_path": file_path,
+                    "folder": file_folder,
+                    "chunk": highlight_text(chunk_text[:200].lower(), clean_words),
+                    "score": score,
+                    "source": "keyword"
+                })
+                
+        # =========================================================
+        # 🔥 FILE NAME KEYWORD SEARCH (NEW)
+        # =========================================================
+
+        file_name_results = []
+
+        if clean_words:
+            conditions = " OR ".join(["f.name LIKE ?" for _ in clean_words])
+            values = [f"%{word}%" for word in clean_words]
+
+            cursor.execute(f"""
+                SELECT name, path, extension, folder
+                FROM files f
+                WHERE {conditions}
+            """, values)
+
+            rows = cursor.fetchall()
+
+            for row in rows:
+                file_name, file_path, extension, file_folder = row
+
+                if file_type and extension != file_type:
+                    continue
+
+                if folder and folder not in file_folder:
+                    continue
+
+                # 🔥 Strong boost for filename match
+                score = 1.2
+
+                file_name_results.append({
+                    "file_name": file_name,
+                    "file_path": file_path,
+                    "folder": file_folder,
+                    "chunk": f"📄 File name match: {file_name}",
+                    "score": score,
+                    "source": "filename"
+                })
+        # =========================================================
+        # 🔥 MERGE BOTH RESULTS
+        # =========================================================
+
+        combined = semantic_results + keyword_results + file_name_results
+
         seen = set()
         final_results = []
 
-        for r in results:
+        for r in combined:
             path = r["file_path"]
 
             if path not in seen:
                 seen.add(path)
                 final_results.append(r)
 
-        final_results = sorted(final_results, key=lambda x: x["score"], reverse=True)   
-
-        # print(type(final_results[0]))
-        # print("DEBUG RESULT SAMPLE:", final_results[:2])
+        # ---- Final sorting ----
+        final_results = sorted(final_results, key=lambda x: x["score"], reverse=True)
 
         return final_results[:5]
-    
+
     except Exception as e:
         print(f"❌ Search Error: {e}")
         return []
 
     finally:
         conn.close()
-
-# if __name__ == "__main__":
-#     while True:
-#         query = input("\nEnter search query: ").strip()
-#         if query.lower() == "exit":
-#             break
-
-#         results = search_files(query)
-
-#         print("\n📄 Results:\n")
-#         for i, r in enumerate(results, 1):
-#             print(f"{i}. {r['file_name']} ({r['folder']})")
-#             print(f"   Score: {round(r['score'], 3)}")
-#             print(f"   → {r['chunk'][:150]}...\n")

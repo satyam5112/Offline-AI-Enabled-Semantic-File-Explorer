@@ -188,8 +188,10 @@
                             <div class="result-folder">
                                 📂 {{ r.folder }} &nbsp;·&nbsp;
                                 <a href="javascript:void(0)"
-                                    onclick="openFile('{{ r.file_path }}')"
-                                    class="open-link">Open File ↗</a>
+                                    <a href="javascript:void(0)"
+                                        data-path="{{ r.file_path }}"
+                                        onclick="openFile(this.dataset.path)"
+                                        class="open-link">Open File ↗</a>
                             </div>
                             <div class="result-chunk">{{ r.chunk | safe }}...</div>
                         </div>
@@ -476,17 +478,23 @@
         window.location.href = res.url;
     }
 
-    // ---- Open file natively ----
     async function openFile(path) {
         try {
-            const fixedPath = path.replace(/\//g, "\\");
+            console.log("RAW PATH:", path);
+
+            // 🔥 Fix backslashes properly
+            const fixedPath = path.replace(/\\/g, '\\\\');
+
             const response = await fetch(
                 `/open-native?path=${encodeURIComponent(fixedPath)}`
             );
+
             const data = await response.json();
+
             if (data.error) {
                 alert('❌ Could not open file: ' + data.error);
             }
+
         } catch (err) {
             alert('❌ Failed to open file');
         }
