@@ -5,6 +5,8 @@ import threading
 import subprocess
 import socket
 import webbrowser
+import signal
+import atexit
 
 from PyQt6.QtGui import QIcon, QPixmap, QAction
 
@@ -15,6 +17,7 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject
 from torch import layout
+from backend.task_queue.file_queue import file_queue, queued_files
 
 # ---- Base paths ----
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -23,9 +26,6 @@ API_DIR = os.path.join(BACKEND_DIR, "api")
 
 sys.path.insert(0, BASE_DIR)
 sys.path.insert(0, BACKEND_DIR)
-
-from backend.task_queue.file_queue import file_queue, queued_files
-
 
 # ---- Get LAN IP ----
 def get_local_ip():
@@ -39,31 +39,54 @@ def get_local_ip():
     except Exception:
         return "127.0.0.1"
 
-
 # ---- Signal class for thread-safe UI updates ----
 class WorkerSignals(QObject):
     status_update = pyqtSignal(str)
 
+def force_kill_everything():
+    """Nuclear option — kill entire process tree"""
+    print("💀 Force killing all processes...")
+    try:
+        # ✅ Kill port 8000
+        subprocess.run(
+            'netstat -ano | findstr :8000',
+            shell=True, capture_output=True, text=True
+        )
+        result = subprocess.run(
+            'netstat -ano | findstr :8000',
+            shell=True, capture_output=True, text=True
+        )
+        for line in result.stdout.strip().split('\n'):
+            if 'LISTENING' in line:
+                pid = line.strip().split()[-1]
+                subprocess.run(
+                    f'taskkill /PID {pid} /F',
+                    shell=True, capture_output=True
+                )
+                print(f"✅ Killed PID {pid}")
+    except:
+        pass
 
-# ---- Start FastAPI in background ----
-# def start_fastapi():
-#     """
-#     Binds to 0.0.0.0 so the server is reachable on the LAN
-#     (needed for mobile share). The PyQt browser still connects
-#     via 127.0.0.1 — both work simultaneously.
-#     """
-#     subprocess.Popen(
-#         [
-#             sys.executable, "-m", "uvicorn",
-#             "backend.api.main:app",
-#             "--host", "0.0.0.0",   # ← changed from 127.0.0.1
-#             "--port", "8000"
-#         ],
-#         cwd=BASE_DIR,
-#         # stdout=subprocess.DEVNULL,
-#         # stderr=subprocess.DEVNULL
-#     )
+    # ✅ Kill current process and all children
+    import psutil
+    try:
+        parent = psutil.Process(os.getpid())
+        children = parent.children(recursive=True)
+        for child in children:
+            child.kill()
+        parent.kill()
+    except:
+        os._exit(0)
 
+# ✅ Handle Ctrl+C
+def handle_sigint(sig, frame):
+    print("\n🛑 Ctrl+C detected — killing everything...")
+    force_kill_everything()
+
+signal.signal(signal.SIGINT, handle_sigint)
+
+# ✅ Also kill on normal exit
+atexit.register(force_kill_everything)
 
 # ---- Wait for FastAPI to be ready ----
 def wait_for_server(timeout=60):
@@ -190,7 +213,7 @@ class MainWindow(QMainWindow):
         quit_action = QAction("Exit", self)
 
         show_action.triggered.connect(self.show_window)
-        quit_action.triggered.connect(self.close)
+        quit_action.triggered.connect(self.quit_app)
 
         menu.addAction(show_action)
         menu.addAction(quit_action)
@@ -243,18 +266,23 @@ class MainWindow(QMainWindow):
 
     def show_window(self):
         self.show()
-        self.raise_()          # bring window to front
+        self.raise_()          
         self.activateWindow()
         
     def closeEvent(self, event):
         event.ignore()
         self.hide()
         self.tray_icon.showMessage(
-            "DocS AI",
-            "App is running in background",
+            "DocS",
+            "App minimized to tray — watcher still running",
             QSystemTrayIcon.MessageIcon.Information,
             2000
         )
+
+    def quit_app(self):
+        print("🛑 Shutting down DocS AI completely...")
+        self.tray_icon.hide()
+        force_kill_everything()
 
 # ---- Splash Screen ----
 def show_splash():
@@ -289,6 +317,8 @@ if __name__ == "__main__":
     app = QApplication(sys.argv)
     app.setApplicationName("DocS AI")
     app.setStyle("Fusion")
+
+    app.setQuitOnLastWindowClosed(False)
 
     from PyQt6.QtGui import QIcon
     icon_path = os.path.join(BASE_DIR, "logo.ico")

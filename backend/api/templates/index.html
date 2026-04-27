@@ -780,12 +780,13 @@ async function checkMobileUploads() {
         console.error("Polling error:", e);
     }
 }
-
 // Check every 3 seconds
 setInterval(checkMobileUploads, 3000);
 </script>
 <script>
 function showIndexPopup(files) {
+    fetch("/mobile/dismiss-prompt", { method: "POST" });
+
     const fileList = files.join("\n");
 
     const userChoice = confirm(
@@ -793,13 +794,12 @@ function showIndexPopup(files) {
     );
 
     if (userChoice) {
-        // 🔥 CALL YOUR INDEXING ROUTE HERE (if exists)
-        fetch("/mobile/dismiss-prompt", { method: "POST" });
-        
-        alert("✅ Indexing started!");
-    } else {
-        fetch("/mobile/dismiss-prompt", { method: "POST" });
-    }
+        fetch("/mobile/index", { method: "POST" })
+            .then(() => {
+                alert("✅ Indexing started!");
+                window.location.reload();
+            });
+        }
 }
 </script>
 </body>

@@ -164,6 +164,52 @@ def get_folders():
         return []
 
 
+def save_recent_results(query: str, results: list):
+    """Save top 5 search results to recent_results table."""
+    try:
+        conn = sqlite3.connect(DB_LOCATION)
+        cursor = conn.cursor()
+        cursor.execute("""
+            CREATE TABLE IF NOT EXISTS recent_results (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                query TEXT,
+                file_name TEXT,
+                file_path TEXT,
+                score REAL,
+                searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        # Clear previous results
+        cursor.execute("DELETE FROM recent_results")
+        # Insert top 5
+        for r in results[:5]:
+            cursor.execute("""
+                INSERT INTO recent_results (query, file_name, file_path, score)
+                VALUES (?, ?, ?, ?)
+            """, (query, r["file_name"], r.get("file_path",""), r.get("score", 0)))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"❌ Error saving recent results: {e}")
+
+
+def get_recent_results():
+    """Get results from the most recent search."""
+    try:
+        conn = sqlite3.connect(DB_LOCATION)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT query, file_name, file_path, score
+            FROM recent_results
+            ORDER BY searched_at DESC LIMIT 5
+        """)
+        rows = cursor.fetchall()
+        conn.close()
+        return [{"query": r[0], "file_name": r[1], "file_path": r[2], "score": r[3]} for r in rows]
+    except:
+        return []
+
+
 # ---- Routes ----
 @app.get("/")
 def home(request: Request, msg: str = ""):
@@ -470,21 +516,14 @@ def clear_report():
 # ================================================================
 # MOBILE SHARE — wireless file transfer from phone to laptop
 # ================================================================
-def get_desktop_path():
-    user = os.environ["USERPROFILE"]
+# Use USERPROFILE (real Desktop) not expanduser (may give OneDrive Desktop)
+def _get_shared_folder():
+    userprofile = os.environ.get("USERPROFILE", "")
+    if userprofile and os.path.exists(os.path.join(userprofile, "Desktop")):
+        return os.path.join(userprofile, "Desktop", "shared")
+    return os.path.join(os.path.expanduser("~"), "Desktop", "shared")
 
-    # Check OneDrive Desktop first (common in Windows)
-    onedrive_path = os.path.join(user, "OneDrive", "Desktop")
-
-    # Fallback to normal Desktop
-    normal_path = os.path.join(user, "Desktop")
-
-    if os.path.exists(onedrive_path):
-        return onedrive_path
-    return normal_path
-
-
-SHARED_FOLDER = os.path.join(get_desktop_path(), "shared")
+SHARED_FOLDER = _get_shared_folder()
 os.makedirs(SHARED_FOLDER, exist_ok=True)
 
 # Tracks files received from phone, waiting for user to confirm indexing
@@ -512,25 +551,6 @@ def mobile_qr_info():
         "folder": SHARED_FOLDER
     }
 
-@app.post("/mobile/index")
-def index_mobile_files():
-    try:
-        folder = _mobile_pending["folder"]
-        files = _mobile_pending["files"]
-
-        print("🚀 Starting batch indexing...")
-        scan_folder(SHARED_FOLDER)
-        print("✅ Batch indexing completed")
-
-        # Reset state
-        _mobile_pending["active"] = False
-        _mobile_pending["files"] = []
-
-        return {"status": "indexed"}
-
-    except Exception as e:
-        print(f"❌ Indexing error: {e}")
-        return {"status": "error", "detail": str(e)}
 
 @app.get("/mobile", response_class=None)
 def mobile_page():
@@ -751,31 +771,9 @@ async def mobile_upload(file: UploadFile = File(...)):
 @app.post("/mobile/transfer-complete")
 async def mobile_transfer_complete():
     """Phone calls this when all files are done uploading."""
-
     _mobile_pending["active"] = True
     _mobile_pending["folder"] = SHARED_FOLDER
-
     print(f"📱 Transfer complete — {len(_mobile_pending['files'])} file(s) ready to index")
-    try:
-        conn = sqlite3.connect(DB_LOCATION)
-        cursor = conn.cursor()
-        cursor.execute("SELECT path FROM watched_folders WHERE path = ?", (SHARED_FOLDER,))
-        exists = cursor.fetchone()
-
-        if not exists:
-            cursor.execute(
-                "INSERT INTO watched_folders (path) VALUES (?)",
-                (SHARED_FOLDER,)
-            )
-            conn.commit()
-            
-            start_watching(SHARED_FOLDER)
-
-        conn.close()
-
-    except Exception as e:
-        print(f"❌ Error saving shared folder: {e}")
-
     return {"status": "prompt_pending"}
 
 
@@ -949,22 +947,11 @@ def pick_folder_dialog():
             "powershell", "-Command",
             """
             Add-Type -AssemblyName System.Windows.Forms
-            Add-Type -AssemblyName System.Drawing
-
-            $app = [System.Windows.Forms.Application]
-            $app::EnableVisualStyles()
-
-            $dialog = New-Object System.Windows.Forms.OpenFileDialog
-            $dialog.Title = 'Select folder to index'
-            $dialog.Filter = 'Folder|*.none'
-            $dialog.CheckFileExists = $false
-            $dialog.CheckPathExists = $true
-            $dialog.FileName = 'Select Folder'
-            $dialog.ValidateNames = $false
-            $dialog.Multiselect = $false
-
+            $dialog = New-Object System.Windows.Forms.FolderBrowserDialog
+            $dialog.Description = 'Select folder to index'
+            $dialog.ShowNewFolderButton = $false
             if ($dialog.ShowDialog() -eq 'OK') {
-                Split-Path $dialog.FileName -Parent
+                Write-Output $dialog.SelectedPath
             }
             """
         ], capture_output=True, text=True, timeout=60)
