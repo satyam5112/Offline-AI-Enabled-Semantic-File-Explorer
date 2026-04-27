@@ -766,40 +766,30 @@ function closeQROnBackdrop(e) {
         closeQRModal();
     }
 }
-</script>
-<script>
-async function checkMobileUploads() {
+setInterval(async () => {
     try {
-        const res = await fetch("/mobile/pending");
+        const res = await fetch("/mobile/recent");
         const data = await res.json();
 
-        if (data.active && data.files.length > 0) {
-            showIndexPopup(data.files);
+        if (data.count > 0) {
+            showToast(`📥 ${data.count} file(s) received & indexing...`);
         }
-    } catch (e) {
-        console.error("Polling error:", e);
-    }
-}
-// Check every 3 seconds
-setInterval(checkMobileUploads, 3000);
-</script>
-<script>
-function showIndexPopup(files) {
-    fetch("/mobile/dismiss-prompt", { method: "POST" });
+    } catch (e) {}
+}, 3000);
+function showToast(msg) {
+    const t = document.createElement("div");
+    t.textContent = msg;
+    t.style.position = "fixed";
+    t.style.bottom = "20px";
+    t.style.right = "20px";
+    t.style.background = "#021A54";
+    t.style.color = "#fff";
+    t.style.padding = "10px 16px";
+    t.style.borderRadius = "10px";
+    t.style.zIndex = 9999;
 
-    const fileList = files.join("\n");
-
-    const userChoice = confirm(
-        `📱 Files received:\n\n${fileList}\n\nDo you want to index them now?`
-    );
-
-    if (userChoice) {
-        fetch("/mobile/index", { method: "POST" })
-            .then(() => {
-                alert("✅ Indexing started!");
-                window.location.reload();
-            });
-        }
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
 }
 </script>
 </body>

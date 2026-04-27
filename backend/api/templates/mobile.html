@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Send to PC — DocS AI</title>
+
+<style>
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Inter', sans-serif;
+}
+
+body {
+    background: linear-gradient(135deg, #020617 0%, #021A54 100%);
+    min-height: 100vh;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+/* Card */
+.card {
+    background: rgba(255,255,255,0.05);
+    backdrop-filter: blur(14px);
+    border: 1px solid rgba(59,130,246,0.3);
+    border-radius: 20px;
+    padding: 20px;
+    width: 100%;
+    max-width: 420px;
+}
+
+/* Drop zone */
+.drop-zone {
+    border: 2px dashed rgba(59,130,246,0.4);
+    border-radius: 16px;
+    padding: 30px;
+    text-align: center;
+    cursor: pointer;
+    position: relative;
+    transition: 0.3s;
+}
+
+.drop-zone:hover {
+    border-color: #3b82f6;
+    background: rgba(59,130,246,0.08);
+}
+
+#file-input {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+}
+
+.drop-text {
+    color: #e2e8f0;
+    font-size: 15px;
+}
+
+/* File list */
+.file-list {
+    margin-top: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+/* File card */
+.file-item {
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px;
+    padding: 10px;
+    position: relative;
+    overflow: hidden;
+    animation: fadeIn 0.3s ease;
+}
+
+/* Progress bar */
+.progress {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 0%;
+    background: rgba(59,130,246,0.25);
+    transition: width 0.3s;
+}
+
+/* File content */
+.file-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: relative;
+    z-index: 1;
+}
+
+.file-icon {
+    font-size: 20px;
+}
+
+.file-name {
+    flex: 1;
+    color: #e2e8f0;
+    font-size: 13px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.file-size {
+    font-size: 11px;
+    color: #94a3b8;
+}
+
+.file-status {
+    font-size: 14px;
+}
+
+/* Button */
+button {
+    width: 100%;
+    margin-top: 15px;
+    padding: 14px;
+    border-radius: 14px;
+    border: none;
+    font-weight: 600;
+    background: linear-gradient(135deg, #2563eb, #3b82f6);
+    color: white;
+    cursor: pointer;
+    transition: 0.2s;
+}
+
+button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(37,99,235,0.4);
+}
+
+button:disabled {
+    opacity: 0.5;
+}
+
+/* Status screen */
+.status {
+    display: none;
+    text-align: center;
+    color: #e2e8f0;
+}
+
+.status-icon {
+    font-size: 50px;
+    margin-bottom: 10px;
+}
+
+.fade-out {
+    animation: fadeOut 0.4s forwards;
+}
+
+@keyframes fadeIn {
+    from {opacity:0; transform:translateY(10px);}
+    to {opacity:1; transform:translateY(0);}
+}
+
+@keyframes fadeOut {
+    to {opacity:0; transform:scale(0.95);}
+}
+</style>
+</head>
+
+<body>
+
+<div class="card" id="main-card">
+
+    <div class="drop-zone">
+        <input type="file" id="file-input" multiple>
+        <div class="drop-text">📁 Tap to select files</div>
+    </div>
+
+    <div class="file-list" id="file-list"></div>
+
+    <button id="send-btn" disabled>Send to PC</button>
+
+</div>
+
+<div class="status" id="status">
+    <div class="status-icon" id="status-icon">🚀</div>
+    <div id="status-text">Sending files...</div>
+</div>
+
+<script>
+const input = document.getElementById('file-input');
+const fileList = document.getElementById('file-list');
+const sendBtn = document.getElementById('send-btn');
+const status = document.getElementById('status');
+
+let files = [];
+
+const ICONS = {
+    pdf:'📄', txt:'📝', jpg:'🖼️', jpeg:'🖼️',
+    png:'🖼️', csv:'📊', docx:'📘'
+};
+
+function icon(name){
+    return ICONS[name.split('.').pop().toLowerCase()] || '📎';
+}
+
+function size(b){
+    if(b<1024) return b+'B';
+    if(b<1e6) return (b/1024).toFixed(1)+'KB';
+    return (b/1e6).toFixed(1)+'MB';
+}
+
+input.onchange = () => {
+    files = Array.from(input.files);
+    fileList.innerHTML = '';
+
+    files.forEach((f,i)=>{
+        fileList.innerHTML += `
+        <div class="file-item">
+            <div class="progress" id="p-${i}"></div>
+            <div class="file-row">
+                <div class="file-icon">${icon(f.name)}</div>
+                <div class="file-name">${f.name}</div>
+                <div class="file-size">${size(f.size)}</div>
+                <div class="file-status" id="s-${i}">⏳</div>
+            </div>
+        </div>`;
+    });
+
+    sendBtn.disabled = files.length === 0;
+};
+
+sendBtn.onclick = async () => {
+    document.getElementById('main-card').classList.add('fade-out');
+
+    setTimeout(()=>{
+        document.getElementById('main-card').style.display='none';
+        status.style.display='block';
+    },300);
+
+    let ok=0;
+
+    for(let i=0;i<files.length;i++){
+        const fd = new FormData();
+        fd.append('file', files[i]);
+
+        await new Promise(res=>{
+            const xhr = new XMLHttpRequest();
+
+            xhr.upload.onprogress = e=>{
+                if(e.lengthComputable){
+                    document.getElementById(`p-${i}`).style.width =
+                        (e.loaded/e.total*100)+'%';
+                }
+            };
+
+            xhr.onload = ()=>{
+                document.getElementById(`s-${i}`).textContent = '✅';
+                ok++;
+                res();
+            };
+
+            xhr.open('POST','/mobile/upload');
+            xhr.send(fd);
+        });
+    }
+
+    document.getElementById('status-icon').textContent='✅';
+    document.getElementById('status-text').textContent =
+        `${ok} file(s) sent & indexing automatically`;
+};
+</script>
+
+</body>
+</html>
