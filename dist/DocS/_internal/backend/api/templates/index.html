@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DocS</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link rel="icon" type="image/svg+xml" href="/static/logo.svg">
+</head>
+<body>
+    {% if msg %}
+    <div id="toast" class="toast
+        {% if msg.startswith('success') %}toast-success
+        {% elif msg.startswith('error') %}toast-error
+        {% else %}toast-warning{% endif %}">
+        {{ msg.split(':', 1)[1] if ':' in msg else msg }}
+    </div>
+    <script>
+        setTimeout(() => {
+            const toast = document.getElementById('toast');
+            if (toast) {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 400);
+            }
+        }, 4000);
+    </script>
+    {% endif %}
+
+    <!-- SIDEBAR -->
+    <aside class="sidebar" id="sidebar">
+        <div class="logo">
+            <!-- This div will be hidden when collapsed -->
+            <div class="logo-icon logo-expanded">
+                <img src="/static/logo.svg" alt="DocS" class="sidebar-logo" style="height:38px; width:auto;">
+            </div>
+            <button class="toggle-btn" onclick="toggleSidebar()">
+                <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M4 6H20M4 12H20M4 18H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                </svg>
+            </button>
+        </div>
+        <nav>
+            <a href="/" class="nav-item">
+                <span class="nav-icon">✨</span>
+                <span class="nav-text">Search</span>
+            </a>
+            <a href="/files" class="nav-item">
+                <span class="nav-icon">📄</span>
+                <span class="nav-text">My Files</span>
+            </a>
+            <a href="/vault" class="nav-item">
+                <span class="nav-icon">🔒</span>
+                <span class="nav-text">Vault</span>
+            </a>
+        </nav>
+        <div class="sidebar-bottom">
+            <button class="btn-reset-nav" onclick="showResetModal()">
+                <span>🗑️</span>
+                <span>Reset Database</span>
+            </button>
+            
+            <!-- Reset Modal -->
+            <div id="reset-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:9999; align-items:center; justify-content:center;">
+                <div style="background:#1e293b; border-radius:16px; padding:32px; width:380px; border:1px solid #334155; text-align:center;">
+                    <div style="font-size:40px; margin-bottom:16px;">⚠️</div>
+                    <div style="color:#fff; font-size:18px; font-weight:700; margin-bottom:8px;">Reset Database?</div>
+                    <div style="color:#94a3b8; font-size:13px; margin-bottom:24px; line-height:1.6;">
+                        This will permanently delete all indexed files, vectors and physical files from the database. This action cannot be undone.
+                    </div>
+                    <div style="display:flex; gap:12px; justify-content:center;">
+                        <button onclick="hideResetModal()"
+                            style="padding:10px 24px; border-radius:10px; border:1px solid #334155;
+                                background:transparent; color:#94a3b8; font-size:14px;
+                                font-weight:600; cursor:pointer;">
+                            Cancel
+                        </button>
+                        <form method="post" action="/reset" style="margin:0;">
+                            <button type="submit"
+                                style="padding:10px 24px; border-radius:10px; border:none;
+                                    background:#dc2626; color:#fff; font-size:14px;
+                                    font-weight:600; cursor:pointer;">
+                                Yes, Reset
+                            </button>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+<!-- Mobile overlay -->
+<div id="sidebar-overlay" class="sidebar-overlay" onclick="closeSidebarMobile()"></div>
+
+    <!-- MAIN -->
+    <main class="main">
+
+        <!-- TOP BAR -->
+        <div class="topbar">
+            <div>
+                <h1 class="page-title">AI File Search</h1>
+                <p class="page-sub">Semantic search across all your indexed documents</p>
+            </div>
+        </div>
+
+        <!-- STATS ROW -->
+        <div class="stats-row">
+            <div class="stat-card">
+                <div class="stat-icon">📄</div>
+                <div class="stat-label">Total Files</div>
+                <div class="stat-value">{{ stats.total_files if stats else '—' }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🧠</div>
+                <div class="stat-label">Vectors Indexed</div>
+                <div class="stat-value">{{ stats.total_vectors if stats else '—' }}</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon">🔎</div>
+                <div class="stat-label">Results Found</div>
+                <div class="stat-value">{{ results | length if results else '0' }}</div>
+            </div>
+        </div>
+
+        <!-- SEARCH FORM CARD -->
+        <div class="search-card">
+            <div class="search-label">Search your documents</div>
+            <form method="post" action="/search-ui" class="search-row">
+                <input class="search-input" type="text" name="query"
+                    id="search-input"
+                    placeholder="🔍  Enter search query..."
+                    autocomplete="off"
+                    required style="color: #000000;">
+                <select class="filter-input" name="file_type" style="color: #000000;">
+                    <option value="">All Types</option>
+                    <option value=".txt">📄 Text (.txt)</option>
+                    <option value=".pdf">📕 PDF (.pdf)</option>
+                    <option value=".jpg">🖼️ Image (.jpg)</option>
+                    <option value=".csv">📊 CSV (.csv)</option>
+                </select>
+                <input class="filter-input" type="text" name="folder"
+                    id="folder-input"
+                    placeholder="Folder name" style="color: #000000;">
+                <button class="btn-primary" type="submit">Search</button>
+            </form>
+
+            <!-- Recent Searches -->
+            {% if recent_searches %}
+            <div class="recent-searches">
+                <span class="recent-label">Recent:</span>
+                {% for q in recent_searches %}
+                <button class="recent-chip" onclick="setSearch('{{ q }}')">
+                    🕐 {{ q }}
+                </button>
+                {% endfor %}
+                <button class="recent-clear" onclick="clearSearches()">Clear</button>
+            </div>
+            {% endif %}
+        </div>
+
+        <!-- PANEL ROW - TWO COLUMN LAYOUT -->
+        <div class="panel-row">
+
+            <!-- LEFT COLUMN: RESULTS -->
+            <div class="results-card">
+                <div class="results-header">
+                    <div class="results-title">
+                        {% if results is defined and results %}
+                            Search Results
+                        {% elif recent_results %}
+                            Recent Results
+                        {% else %}
+                            Results
+                        {% endif %}
+                    </div>
+                    {% if results is defined and results %}
+                        <span class="badge">{{ results | length }} found</span>
+                    {% endif %}
+                </div>
+
+                <!-- ACTIVE SEARCH RESULTS -->
+                {% if results is defined and results %}
+                    {% for r in results %}
+                    <div class="result-item">
+                        <div class="file-icon
+                            {% if r.file_name.endswith('.pdf') %}icon-pdf
+                            {% elif r.file_name.endswith('.csv') %}icon-csv
+                            {% elif r.file_name.endswith('.jpg') or r.file_name.endswith('.png') %}icon-img
+                            {% else %}icon-txt{% endif %}">
+                            {% if r.file_name.endswith('.pdf') %}📕
+                            {% elif r.file_name.endswith('.csv') %}📊
+                            {% elif r.file_name.endswith('.jpg') or r.file_name.endswith('.png') %}🖼️
+                            {% else %}📄{% endif %}
+                        </div>
+                        <div style="flex:1; min-width:0;">
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                                <div class="result-name">{{ r.file_name }}</div>
+                                <span class="score-badge">{{ r.score | round(3) }}</span>
+                            </div>
+                            <div class="result-folder">
+                                📂 {{ r.folder }} &nbsp;·&nbsp;
+                                <a href="javascript:void(0)"
+                                    data-path="{{ r.file_path }}"
+                                    onclick="openFile(this.dataset.path)"
+                                    class="open-link">Open File ↗</a>
+                            </div>
+                            <div class="result-chunk">{{ r.chunk | safe }}...</div>
+                        </div>
+                    </div>
+                    {% endfor %}
+
+                <!-- RECENT RESULTS (shown when no active search) -->
+                {% elif recent_results %}
+                    <div style="padding: 4px 0;">
+                        {% for r in recent_results %}
+                        <div class="result-item">
+                            <div class="file-icon
+                                {% if r.file_name.endswith('.pdf') %}icon-pdf
+                                {% elif r.file_name.endswith('.csv') %}icon-csv
+                                {% elif r.file_name.endswith('.jpg') or r.file_name.endswith('.png') %}icon-img
+                                {% else %}icon-txt{% endif %}">
+                                {% if r.file_name.endswith('.pdf') %}📕
+                                {% elif r.file_name.endswith('.csv') %}📊
+                                {% elif r.file_name.endswith('.jpg') or r.file_name.endswith('.png') %}🖼️
+                                {% else %}📄{% endif %}
+                            </div>
+                            <div style="flex:1; min-width:0;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                                    <div class="result-name">{{ r.file_name }}</div>
+                                    <span class="score-badge">{{ r.score | round(3) }}</span>
+                                </div>
+                                <div class="result-folder">
+                                    🔍 {{ r.query }} &nbsp;·&nbsp;
+                                    <a href="javascript:void(0)"
+                                        data-path="{{ r.file_path }}"
+                                        onclick="openFile(this.dataset.path)"
+                                        class="open-link">Open File ↗</a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                <!-- EMPTY STATE -->
+                {% elif results is defined %}
+                    <div class="no-results">
+                        <div style="font-size:40px; margin-bottom:12px;">🔍</div>
+                        <div style="font-weight:600; color:#374151;">No results found</div>
+                        <div style="font-size:13px; color:#94a3b8; margin-top:4px;">
+                            Try different keywords or remove filters
+                        </div>
+                    </div>
+
+                <!-- DEFAULT WELCOME STATE -->
+                {% else %}
+                    <div class="no-results">
+                        <div style="font-size:40px; margin-bottom:12px;">✨</div>
+                        <div style="font-weight:600; color:#374151;">Ready to search</div>
+                        <div style="font-size:13px; color:#94a3b8; margin-top:4px;">
+                            Enter a query above to find your documents
+                        </div>
+                    </div>
+                {% endif %}
+            </div>
+
+            <!-- RIGHT COLUMN: SIDEBAR CARDS -->
+            <div>
+                <!-- ADD FILES — native picker, stores actual disk path -->
+                <div class="side-card">
+                    <div class="side-title">📁 Add Files</div>
+                    <div class="upload-zone" onclick="pickFilesNative()" style="cursor:pointer;">
+                        <div style="font-size:28px; margin-bottom:8px;">📂</div>
+                        <div style="font-weight:600; color:#374151; margin-bottom:4px;">
+                            Click to browse files
+                        </div>
+                        <div style="font-size:12px; color:#94a3b8;">Opens native file picker</div>
+                        <div style="margin-top:8px; font-size:11px; color:#94a3b8;">
+                            .txt &nbsp;·&nbsp; .pdf &nbsp;·&nbsp; .jpg &nbsp;·&nbsp; .png &nbsp;·&nbsp; .csv
+                        </div>
+                    </div>
+                    <div id="picked-files-list" style="
+                        display:none; margin-bottom:10px;
+                        background:#f8fafc; border:1px solid #e2e8f0;
+                        border-radius:8px; padding:8px 12px;
+                        font-size:12px; color:#374151;
+                        max-height:100px; overflow-y:auto;
+                    "></div>
+                    <button class="btn-upload" id="add-files-btn"
+                        onclick="indexPickedFiles()" style="display:none;">
+                        + Index Selected Files
+                    </button>
+                </div>
+
+                <!-- SHARE FROM PHONE — new card -->
+                <div class="side-card">
+                    <div class="side-title">📱 Share from Phone</div>
+                    <p style="font-size:12px; color:#64748b; margin-bottom:12px; line-height:1.6;">
+                        Send files wirelessly from your phone on the same WiFi network.
+                    </p>
+                    <button class="btn-share-phone" onclick="openQRModal()">
+                        📡 Show QR Code
+                    </button>
+                    <div style="margin-top:8px; font-size:11px; color:#94a3b8;">
+                        Files saved to Desktop/shared/
+                    </div>
+                </div>
+
+                <!-- WATCHING -->
+                <div class="side-card">
+                    <div class="side-title">👀 Watching</div>
+                    {% if folders %}
+                        <div class="watched-list">
+                            {% for f in folders %}
+                            <div class="watched-item">
+                                <div class="watched-info">
+                                    <span class="watched-dot"></span>
+                                    <span class="watched-path" title="{{ f }}">
+                                        {{ f.split('\\')[-1] or f.split('/')[-1] }}
+                                    </span>
+                                </div>
+                                <div class="watched-full-path">{{ f }}</div>
+                                <form method="post" action="/remove-folder" style="margin:0;">
+                                    <input type="hidden" name="path" value="{{ f }}">
+                                    <button class="watched-remove" title="Remove folder">✖</button>
+                                </form>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="watched-empty">
+                            <div style="font-size:24px; margin-bottom:6px;">📂</div>
+                            <div style="color:#000000">No folders being watched</div>
+                            <div style="margin-top:4px; font-size:11px;">Add a folder to start indexing</div>
+                        </div>
+                    {% endif %}
+                </div>
+
+                <!-- ADD FOLDER -->
+                <div class="side-card">
+                    <div class="side-title">📂 Add Folder</div>
+                    <div id="selected-folder" style="
+                        width:100%;
+                        padding:10px;
+                        border-radius:8px;
+                        border:1px solid #000000;
+                        background:#ffffff;
+                        color:#000000;
+                        margin-bottom:10px;
+                        font-size:12px;
+                        min-height:40px;
+                        word-break:break-all;
+                    ">No folder selected</div>
+                    <button class="btn-upload" onclick="pickFolder()">
+                        📂 Browse Folder
+                    </button>
+                    <div style="margin-top:8px; font-size:11px; color:#94a3b8;">
+                        Scan + Watch folder for changes
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </main>
+
+    <!-- PROGRESS BAR -->
+    <div id="progress-modal" class="progress-modal">
+        <div class="progress-header">
+            <div class="progress-title">
+                <div class="progress-spinner"></div>
+                Indexing Files
+            </div>
+            <span id="progress-percent">0%</span>
+        </div>
+        <div class="progress-file" id="current">Preparing...</div>
+        <div class="progress-track">
+            <div class="progress-fill" id="bar-fill"></div>
+        </div>
+        <div class="progress-footer">
+            <span id="processed">0</span> of <span id="total">0</span> files processed
+        </div>
+    </div>
+
+    <!-- ============================================================
+         QR MODAL — shown when user clicks "Show QR Code"
+    ============================================================ -->
+    <div id="qr-modal" class="ms-overlay" onclick="closeQROnBackdrop(event)">
+        <div class="ms-box">
+            <button class="ms-close" onclick="closeQRModal()">✕</button>
+
+            <div class="ms-header">
+                <span class="ms-icon">📡</span>
+                <h2 class="ms-title">Scan to Send Files</h2>
+                <p class="ms-sub">Open on your phone — same WiFi required</p>
+            </div>
+
+            <!-- QR code renders here -->
+            <div id="qr-container" class="ms-qr-wrap">
+                <div id="qr-inner"></div>
+            </div>
+
+            <div id="qr-url-chip" class="ms-url-chip">Loading...</div>
+
+            <div class="ms-steps">
+                <div class="ms-step"><span class="ms-step-num">1</span> Connect phone to same WiFi</div>
+                <div class="ms-step"><span class="ms-step-num">2</span> Scan QR or type the URL</div>
+                <div class="ms-step"><span class="ms-step-num">3</span> Pick files &amp; tap Send</div>
+            </div>
+
+            <div class="ms-folder-note">
+                Files saved to: <code id="ms-folder-path">~/Desktop/shared</code>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============================================================
+         INDEX PROMPT MODAL — appears when phone finishes transfer
+    ============================================================ -->
+    <div id="index-modal" class="ms-overlay" style="display:none;">
+        <div class="ms-box">
+            <div class="ms-header">
+                <span class="ms-icon">📥</span>
+                <h2 class="ms-title">Files Received!</h2>
+                <p class="ms-sub">New files arrived in your shared folder</p>
+            </div>
+
+            <div id="received-files-list" class="ms-file-list"></div>
+
+            <p class="ms-index-question">Would you like to index these files so you can search them?</p>
+
+            <div class="ms-actions">
+                <button class="btn-primary" style="flex:1;" onclick="indexSharedFolder()">
+                    ✅ Yes, Index Now
+                </button>
+                <button class="ms-btn-no" onclick="dismissIndexPrompt()">
+                    Not Now
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- PROCESSING REPORT MODAL -->
+    <div id="report-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:99999; align-items:center; justify-content:center;">
+        <div style="background:#fff; border-radius:16px; width:520px; max-height:80vh; display:flex; flex-direction:column; overflow:hidden; border:1px solid #e2e8f0;">
+            <div style="padding:20px 24px; border-bottom:1px solid #f1f5f9; display:flex; align-items:center; justify-content:space-between;">
+                <div>
+                    <div style="font-size:16px; font-weight:700; color:#0f172a;">📊 Indexing Report</div>
+                    <div style="font-size:12px; color:#64748b; margin-top:2px;" id="report-summary"></div>
+                </div>
+                <button onclick="closeReport()" style="background:#f1f5f9; border:none; border-radius:8px; padding:6px 12px; cursor:pointer; font-size:13px; color:#374151; font-weight:600;">
+                    Close ✕
+                </button>
+            </div>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; padding:16px 24px; border-bottom:1px solid #f1f5f9;">
+                <div style="background:#f0fdf4; border-radius:10px; padding:12px 16px; border:1px solid #bbf7d0;">
+                    <div style="font-size:11px; color:#166534; font-weight:600; margin-bottom:4px;">✅ SUCCESSFULLY INDEXED</div>
+                    <div style="font-size:28px; font-weight:700; color:#15803d;" id="success-count">0</div>
+                </div>
+                <div style="background:#fef2f2; border-radius:10px; padding:12px 16px; border:1px solid #fecaca;">
+                    <div style="font-size:11px; color:#991b1b; font-weight:600; margin-bottom:4px;">❌ FAILED</div>
+                    <div style="font-size:28px; font-weight:700; color:#dc2626;" id="failed-count">0</div>
+                </div>
+            </div>
+            <div style="overflow-y:auto; flex:1; padding:16px 24px;">
+                <div id="success-section">
+                    <div style="font-size:12px; font-weight:600; color:#166534; margin-bottom:8px;">✅ Indexed Successfully</div>
+                    <div id="success-list" style="display:flex; flex-direction:column; gap:4px; margin-bottom:16px;"></div>
+                </div>
+                <div id="failed-section" style="display:none;">
+                    <div style="font-size:12px; font-weight:600; color:#dc2626; margin-bottom:8px;">❌ Failed Files</div>
+                    <div id="failed-list" style="display:flex; flex-direction:column; gap:4px;"></div>
+                </div>
+            </div>
+            <div style="padding:16px 24px; border-top:1px solid #f1f5f9; display:flex; justify-content:flex-end;">
+                <button onclick="closeReport()" style="background:#2563eb; color:#fff; border:none; border-radius:10px; padding:10px 24px; font-size:14px; font-weight:600; cursor:pointer;">
+                    Done
+                </button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ============================================================
+     ALL JAVASCRIPT
+    ============================================================ -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+    // ---- Native file picker ----
+    let _pickedPaths = [];
+
+    async function pickFilesNative() {
+        try {
+            const res = await fetch('/pick-files');
+            const data = await res.json();
+
+            if (!data.paths || data.paths.length === 0) {
+                document.getElementById('picked-files-list').style.display = 'none';
+                document.getElementById('add-files-btn').style.display = 'none';
+                return;
+            }
+
+            _pickedPaths = data.paths;
+
+            const listEl = document.getElementById('picked-files-list');
+            listEl.innerHTML = _pickedPaths.map(p => {
+                const name = p.split('\\').pop() || p.split('/').pop();
+                return `<div style="padding:2px 0; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">📄 ${name}</div>`;
+            }).join('');
+            listEl.style.display = 'block';
+            document.getElementById('add-files-btn').style.display = 'block';
+
+        } catch(e) {
+            alert('❌ Failed to open file picker');
+        }
+    }
+
+    async function indexPickedFiles() {
+        if (!_pickedPaths.length) return;
+        const form = new FormData();
+        form.append('paths', _pickedPaths.join('|'));
+        const res = await fetch('/index-files-by-path', {
+            method: 'POST',
+            body: form
+        });
+        window.location.href = res.url;
+    }
+
+    async function openFile(path) {
+        try {
+            console.log("RAW PATH:", path);
+
+            // 🔥 Fix backslashes properly
+            const fixedPath = path.replace(/\\/g, '\\\\');
+
+            const response = await fetch(
+                `/open-native?path=${encodeURIComponent(fixedPath)}`
+            );
+
+            const data = await response.json();
+
+            if (data.error) {
+                alert('❌ Could not open file: ' + data.error);
+            }
+
+        } catch (err) {
+            alert('❌ Failed to open file');
+        }
+    }
+
+    // ---- Recent searches ----
+    function setSearch(query) {
+        document.getElementById('search-input').value = query;
+        document.getElementById('search-input').focus();
+    }
+
+    async function clearSearches() {
+        await fetch('/clear-searches', { method: 'POST' });
+        window.location.reload();
+    }
+
+    // ---- Recent results ----
+    async function clearRecentResults() {
+        await fetch('/clear-recent-results', { method: 'POST' });
+        window.location.reload();
+    }
+
+    // ---- Folder picker ----
+    async function pickFolder() {
+        try {
+            const res = await fetch('/pick-folder');
+            const data = await res.json();
+            if (data.path) {
+                document.getElementById('selected-folder').innerText = data.path;
+                document.getElementById('selected-folder').style.color = '#000';
+                const formData = new FormData();
+                formData.append('path', data.path);
+                await fetch('/add-folder', { method: 'POST', body: formData });
+                window.location.href = '/?msg=success:Folder added successfully';
+            } else {
+                document.getElementById('selected-folder').innerText = 'No folder selected';
+            }
+        } catch (e) {
+            alert('❌ Failed to open folder picker');
+        }
+    }
+
+    // ---- Progress tracker ----
+    setInterval(async () => {
+        try {
+            const res = await fetch("/progress");
+            const data = await res.json();
+
+            const modal = document.getElementById("progress-modal");
+            modal.style.display = data.active ? "block" : "none";
+
+            document.getElementById("total").innerText = data.total;
+            document.getElementById("processed").innerText = data.processed;
+
+            const fileName = (data.current_file || "").split("\\").pop().split("/").pop();
+            document.getElementById("current").innerText = fileName || "Preparing...";
+
+            const percent = data.total > 0
+                ? Math.round((data.processed / data.total) * 100) : 0;
+            document.getElementById("bar-fill").style.width = percent + "%";
+            document.getElementById("progress-percent").innerText = percent + "%";
+
+            if (data.report_ready) showReport(data);
+        } catch (e) {}
+    }, 1000);
+
+    function showReport(data) {
+        document.getElementById("report-modal").style.display = "flex";
+        document.getElementById("report-summary").innerText = `${data.total} files processed`;
+        document.getElementById("success-count").innerText = data.success_files.length;
+        document.getElementById("failed-count").innerText = data.failed_files.length;
+
+        const successList = document.getElementById("success-list");
+        successList.innerHTML = "";
+        if (data.success_files.length > 0) {
+            data.success_files.forEach(f => {
+                successList.innerHTML += `
+                    <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;
+                                background:#f0fdf4;border-radius:8px;font-size:12px;color:#166534;">
+                        <span>✅</span>
+                        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f}</span>
+                    </div>`;
+            });
+        } else {
+            document.getElementById("success-section").style.display = "none";
+        }
+
+        const failedList = document.getElementById("failed-list");
+        failedList.innerHTML = "";
+        if (data.failed_files.length > 0) {
+            document.getElementById("failed-section").style.display = "block";
+            data.failed_files.forEach(f => {
+                failedList.innerHTML += `
+                    <div style="display:flex;align-items:center;gap:8px;padding:7px 10px;
+                                background:#fef2f2;border-radius:8px;font-size:12px;color:#dc2626;">
+                        <span>❌</span>
+                        <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${f}</span>
+                    </div>`;
+            });
+        }
+    }
+
+    async function closeReport() {
+        document.getElementById("report-modal").style.display = "none";
+        await fetch("/clear-report", { method: "POST" });
+        window.location.reload();
+    }
+
+    // ---- Notifications ----
+    setInterval(async () => {
+        try {
+            const res = await fetch('/notifications');
+            const data = await res.json();
+            if (data.notifications && data.notifications.length > 0) {
+                data.notifications.forEach(msg => alert(msg));
+            }
+        } catch (e) {}
+    }, 5000);
+
+</script>
+
+<!-- Sidebar Toggle JavaScript -->
+<script>
+    // Get elements
+    const sidebar = document.getElementById('sidebar');
+    const main = document.querySelector('.main');
+    const overlay = document.getElementById('sidebar-overlay');
+    
+    // Toggle sidebar function
+    function toggleSidebar() {
+        const isMobile = window.innerWidth <= 768;
+        
+        if (isMobile) {
+            // Mobile behavior - slide in/out
+            sidebar.classList.toggle('mobile-open');
+            if (overlay) {
+                overlay.classList.toggle('active');
+            }
+            localStorage.setItem('sidebarMobileOpen', sidebar.classList.contains('mobile-open'));
+        } else {
+            // Desktop behavior - collapse/expand
+            sidebar.classList.toggle('collapsed');
+            if (main) {
+                main.classList.toggle('expanded');
+            }
+            // Save state to localStorage
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            localStorage.setItem('sidebarCollapsed', isCollapsed);
+        }
+    }
+    
+    // Close sidebar on mobile (when clicking overlay)
+    function closeSidebarMobile() {
+        if (window.innerWidth <= 768) {
+            sidebar.classList.remove('mobile-open');
+            if (overlay) {
+                overlay.classList.remove('active');
+            }
+            localStorage.setItem('sidebarMobileOpen', false);
+        }
+    }
+    
+    // Load saved state on page load
+    document.addEventListener('DOMContentLoaded', function() {
+        const isMobile = window.innerWidth <= 768;
+        
+        if (isMobile) {
+            // Mobile - load mobile state
+            const wasOpen = localStorage.getItem('sidebarMobileOpen') === 'true';
+            if (wasOpen) {
+                sidebar.classList.add('mobile-open');
+                if (overlay) overlay.classList.add('active');
+            }
+        } else {
+            // Desktop - load collapsed state
+            const savedState = localStorage.getItem('sidebarCollapsed');
+            if (savedState === 'true') {
+                sidebar.classList.add('collapsed');
+                if (main) main.classList.add('expanded');
+            }
+        }
+    });
+    
+    // Handle window resize
+    let resizeTimer;
+    window.addEventListener('resize', function() {
+        clearTimeout(resizeTimer);
+        resizeTimer = setTimeout(function() {
+            const isMobile = window.innerWidth <= 768;
+            
+            if (isMobile) {
+                // Switching to mobile view
+                if (sidebar.classList.contains('collapsed')) {
+                    sidebar.classList.remove('collapsed');
+                    if (main) main.classList.remove('expanded');
+                }
+                sidebar.classList.remove('mobile-open');
+                if (overlay) overlay.classList.remove('active');
+            } else {
+                // Switching to desktop view
+                sidebar.classList.remove('mobile-open');
+                if (overlay) overlay.classList.remove('active');
+                const savedState = localStorage.getItem('sidebarCollapsed');
+                if (savedState === 'true') {
+                    sidebar.classList.add('collapsed');
+                    if (main) main.classList.add('expanded');
+                } else {
+                    sidebar.classList.remove('collapsed');
+                    if (main) main.classList.remove('expanded');
+                }
+            }
+        }, 150);
+    });
+    
+    // Reset modal functions
+    function showResetModal() {
+        const modal = document.getElementById('reset-modal');
+        if (modal) modal.style.display = 'flex';
+    }
+    
+    function hideResetModal() {
+        const modal = document.getElementById('reset-modal');
+        if (modal) modal.style.display = 'none';
+    }
+    
+    // Close modal when clicking outside
+    const resetModal = document.getElementById('reset-modal');
+    if (resetModal) {
+        resetModal.addEventListener('click', function(e) {
+            if (e.target === this) hideResetModal();
+        });
+    }
+    
+    // Update active nav item based on current page
+    function updateActiveNav() {
+        const currentPath = window.location.pathname;
+        const navItems = document.querySelectorAll('.nav-item');
+        
+        navItems.forEach(item => {
+            const href = item.getAttribute('href');
+            if ((href === currentPath) || 
+                (currentPath === '/' && href === '/') ||
+                (currentPath === '/files' && href === '/files') ||
+                (currentPath === '/vault' && href === '/vault')) {
+                item.classList.add('active');
+            } else {
+                item.classList.remove('active');
+            }
+        });
+    }
+    
+    // Call on load
+    updateActiveNav();
+</script>
+<script>
+let qrInstance = null;
+
+async function openQRModal() {
+    const modal = document.getElementById("qr-modal");
+    const qrContainer = document.getElementById("qr-inner");
+    const urlChip = document.getElementById("qr-url-chip");
+    const folderPath = document.getElementById("ms-folder-path");
+
+    modal.style.display = "flex";
+
+    // Show loading
+    qrContainer.innerHTML = "Loading QR...";
+    urlChip.textContent = "Loading...";
+
+    try {
+        const res = await fetch("/mobile/qr-info");
+        const data = await res.json();
+
+        const url = data.url;
+        const folder = data.folder;
+
+        // Clear previous QR
+        qrContainer.innerHTML = "";
+
+        // Generate QR
+        qrInstance = new QRCode(qrContainer, {
+            text: url,
+            width: 200,
+            height: 200
+        });
+
+        // Show URL + folder
+        urlChip.textContent = url;
+        folderPath.textContent = folder;
+
+    } catch (err) {
+        qrContainer.innerHTML = "❌ Failed to load QR";
+        console.error(err);
+    }
+}
+
+function closeQRModal() {
+    document.getElementById("qr-modal").style.display = "none";
+}
+
+function closeQROnBackdrop(e) {
+    if (e.target.id === "qr-modal") {
+        closeQRModal();
+    }
+}
+setInterval(async () => {
+    try {
+        const res = await fetch("/mobile/recent");
+        const data = await res.json();
+
+        if (data.count > 0) {
+            showToast(`📥 ${data.count} file(s) received & indexing...`);
+        }
+    } catch (e) {}
+}, 3000);
+function showToast(msg) {
+    const t = document.createElement("div");
+    t.textContent = msg;
+    t.style.position = "fixed";
+    t.style.bottom = "20px";
+    t.style.right = "20px";
+    t.style.background = "#021A54";
+    t.style.color = "#fff";
+    t.style.padding = "10px 16px";
+    t.style.borderRadius = "10px";
+    t.style.zIndex = 9999;
+
+    document.body.appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+}
+</script>
+</body>
+</html>

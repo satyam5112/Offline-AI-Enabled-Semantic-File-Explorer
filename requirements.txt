@@ -65,3 +65,4 @@ typing_extensions==4.15.0
 tzdata==2025.3
 uvicorn==0.44.0
 watchdog==6.0.0
+pystray==0.19.5
