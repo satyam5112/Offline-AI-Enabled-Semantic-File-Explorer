@@ -17,7 +17,10 @@ from PyQt6.QtWidgets import (
 )
 from PyQt6.QtCore import Qt, QTimer, pyqtSignal, QObject
 from torch import layout
-from backend.task_queue.file_queue import file_queue, queued_files
+# from backend.task_queue.file_queue import file_queue, queued_files
+
+os.environ["PYTHONIOENCODING"] = "utf-8"
+sys.stdout.reconfigure(encoding='utf-8')
 
 # ---- Base paths ----
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -91,6 +94,7 @@ atexit.register(force_kill_everything)
 # ---- Wait for FastAPI to be ready ----
 def wait_for_server(timeout=60):
     import urllib.request
+    time.sleep(3) # ✅ give uvicorn time to bind port
     start = time.time()
     while time.time() - start < timeout:
         try:
@@ -107,7 +111,7 @@ class MainWindow(QMainWindow):
 
     def __init__(self):
         super().__init__()
-        self.setWindowTitle("DocS AI — Semantic File Search")
+        self.setWindowTitle("DocS — Semantic File Search")
         self.setMinimumSize(1280, 800)
         self.resize(1400, 900)
         self._lan_ip = get_local_ip()
@@ -150,7 +154,7 @@ class MainWindow(QMainWindow):
             logo_label.setPixmap(pixmap)
 
         # App name
-        name_label = QLabel("DocS AI")
+        name_label = QLabel("DocS")
         name_label.setStyleSheet("color:#fff; font-size:16px; font-weight:700;")
 
         title_layout.addWidget(logo_label)
@@ -175,7 +179,7 @@ class MainWindow(QMainWindow):
         layout.addWidget(toolbar)
 
         # ---- Placeholder UI instead of browser ----
-        placeholder = QLabel("🚀 DocS AI is starting...\nOpening in browser")
+        placeholder = QLabel("DocS is starting...\nOpening in browser")
         placeholder.setAlignment(Qt.AlignmentFlag.AlignCenter)
         placeholder.setStyleSheet("""
             color:#ffffff;
@@ -205,11 +209,18 @@ class MainWindow(QMainWindow):
         threading.Thread(target=self.start_server, daemon=True).start()
 
         self.tray_icon = QSystemTrayIcon(self)
-        self.tray_icon.setIcon(self.windowIcon())
+        icon_path = os.path.join(BASE_DIR, "logo.ico")
+        icon = QIcon(icon_path)
+        if not icon.isNull():
+            self.tray_icon.setIcon(icon)
+        else:
+            self.tray_icon.setIcon(self.style().standardIcon(
+                self.style().StandardPixmap.SP_ComputerIcon
+            ))
 
         menu = QMenu()
 
-        show_action = QAction("Open DocS AI", self)
+        show_action = QAction("Open DocS", self)
         quit_action = QAction("Exit", self)
 
         show_action.triggered.connect(self.show_window)
@@ -220,7 +231,6 @@ class MainWindow(QMainWindow):
 
         self.tray_icon.setContextMenu(menu)
         self.tray_icon.show()
-
 
     def start_server(self):
         # 🚀 Start FastAPI and STORE process
@@ -280,7 +290,7 @@ class MainWindow(QMainWindow):
         )
 
     def quit_app(self):
-        print("🛑 Shutting down DocS AI completely...")
+        print("🛑 Shutting down DocS completely...")
         self.tray_icon.hide()
         force_kill_everything()
 
@@ -293,7 +303,7 @@ def show_splash():
     layout = QVBoxLayout(splash_widget)
     layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-    title = QLabel("⚡ DocS AI")
+    title = QLabel("DocS")
     title.setAlignment(Qt.AlignmentFlag.AlignCenter)
     title.setStyleSheet("color:#fff; font-size:32px; font-weight:800;")
 
@@ -315,7 +325,7 @@ def show_splash():
 # ---- Entry point ----
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    app.setApplicationName("DocS AI")
+    app.setApplicationName("DocS")
     app.setStyle("Fusion")
 
     app.setQuitOnLastWindowClosed(False)

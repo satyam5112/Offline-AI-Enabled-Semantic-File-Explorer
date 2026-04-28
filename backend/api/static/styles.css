@@ -185,12 +185,7 @@ body {
 /* Collapsed state */
 .sidebar.collapsed {
     width: 80px;
-}
-
-.sidebar.collapsed .logo-text,
-.sidebar.collapsed .nav-text,
-.sidebar.collapsed .btn-reset-nav span:last-child {
-    display: none;
+    padding: 28px 8px;
 }
 
 .sidebar.collapsed .nav-item {
@@ -203,13 +198,20 @@ body {
     padding: 0 0 20px 0;
 }
 
-.sidebar.collapsed .btn-reset-nav {
-    justify-content: center;
-    padding: 10px;
+.sidebar.collapsed .logo-icon {
+    display: none;
 }
 
-.sidebar.collapsed .nav-icon {
-    font-size: 20px;
+.sidebar.collapsed .logo-expanded {
+    display: none;
+}
+
+.sidebar.collapsed .logo-collapsed {
+    display: block;
+}
+
+.sidebar.collapsed .toggle-btn {
+    margin-left: 0;
 }
 
 /* Logo section with toggle button */
@@ -222,19 +224,27 @@ body {
     margin-bottom: 24px;
 }
 
-.logo-icon {
+.logo-expanded {
     display: flex;
     align-items: center;
     gap: 8px;
 }
 
-.logo-text {
+.logo-collapsed {
+    display: none;
+    font-size: 24px;
+    font-weight: 700;
     background: linear-gradient(135deg, #FF85BB, #FFCEE3);
     -webkit-background-clip: text;
     background-clip: text;
     color: transparent;
-    font-size: 18px;
-    font-weight: 800;
+    margin-right: 4px;
+}
+
+.logo-icon {
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
 
 /* Hamburger Toggle Button */
@@ -353,12 +363,8 @@ body {
 /* Collapsed state */
 .sidebar.collapsed {
     width: 80px;
-}
+    padding: 28px 8px;
 
-.sidebar.collapsed .logo-text,
-.sidebar.collapsed .nav-text,
-.sidebar.collapsed .btn-reset-nav span:last-child {
-    display: none;
 }
 
 .sidebar.collapsed .nav-item {
@@ -368,7 +374,10 @@ body {
 
 .sidebar.collapsed .logo {
     justify-content: center;
-    padding: 0 0 20px 0;
+}
+
+.sidebar.collapsed .sidebar-logo {
+    display: none !important;
 }
 
 .sidebar.collapsed .btn-reset-nav {
@@ -394,15 +403,6 @@ body {
     display: flex;
     align-items: center;
     gap: 8px;
-}
-
-.logo-text {
-    background: linear-gradient(135deg, #FF85BB, #FFCEE3);
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    font-size: 18px;
-    font-weight: 800;
 }
 
 /* Hamburger Toggle Button */
@@ -1715,4 +1715,22 @@ body {
     .main {
         padding: 20px;
     }
+}
+/* Recent results clear button */
+.recent-clear-btn {
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.2);
+    border-radius: 8px;
+    padding: 4px 12px;
+    font-size: 11px;
+    font-weight: 500;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: all var(--transition-normal);
+}
+
+.recent-clear-btn:hover {
+    background: rgba(239, 68, 68, 0.1);
+    border-color: rgba(239, 68, 68, 0.2);
+    color: var(--color-error);
 }

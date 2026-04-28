@@ -58,11 +58,11 @@ def extract_image(file_path):
         if len(text.strip()) < 50:
             text = try_all_rotations(img.convert("L"))
 
-        if len(text.strip()) < 10:
+        # if len(text.strip()) < 10:
             print(f"⚠️ Low text extracted: {file_path}")
             return ""
 
-        print(f"✅ Image extracted: {len(text)} chars")
+        # print(f"✅ Image extracted: {len(text)} chars")
         return text
 
     except Exception as e:

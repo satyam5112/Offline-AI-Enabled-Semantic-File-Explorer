@@ -35,7 +35,7 @@ def extract_pdf(file_path):
     if len(text.strip()) > 50:
         return text   # ✅ Enough text → skip OCR
 
-    print("⚠️ Low/No text found. Applying OCR...")
+    # print("⚠️ Low/No text found. Applying OCR...")
 
     # -------------------------------
     # STEP 3: Convert PDF → Images (LIMIT PAGES)

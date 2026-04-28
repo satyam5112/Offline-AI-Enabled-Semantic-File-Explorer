@@ -1,12 +1,11 @@
 # Python cache
 __pycache__/
-*.pyc
-*.db
+
 # VS Code temp
 tempCodeRunnerFile.py
 
-# Database files
-# *.db
+#Database files
+*.db
 
 # Optional
 .env

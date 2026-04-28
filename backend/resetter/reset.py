@@ -20,13 +20,13 @@ def reset_db():
         conn.commit()
         conn.close()
 
-        print("✅ Database cleared")
+        # print("✅ Database cleared")
 
         # ---- Step 2: Reset FAISS Index ----
         index.reset()
         save_index(index)
 
-        print("✅ FAISS index reset")
+        # print("✅ FAISS index reset")
 
         return {"message": "Database reset successful"}
 

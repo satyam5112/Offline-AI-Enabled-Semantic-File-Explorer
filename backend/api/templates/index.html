@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DocS AI</title>
+    <title>DocS</title>
     <link rel="stylesheet" href="/static/styles.css">
+    <link rel="icon" type="image/svg+xml" href="/static/logo.svg">
 </head>
 <body>
     {% if msg %}
@@ -28,8 +29,9 @@
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
         <div class="logo">
-            <div class="logo-icon">
-                <span class="logo-text">DocS AI</span>
+            <!-- This div will be hidden when collapsed -->
+            <div class="logo-icon logo-expanded">
+                <img src="/static/logo.svg" alt="DocS AI" class="sidebar-logo" style="height:38px; width:auto;">
             </div>
             <button class="toggle-btn" onclick="toggleSidebar()">
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
@@ -119,10 +121,10 @@
             </div>
         </div>
 
-        <!-- SEARCH FORM -->
-        <div class="search-card" >
+        <!-- SEARCH FORM CARD -->
+        <div class="search-card">
             <div class="search-label">Search your documents</div>
-            <form method="post" action="/search-ui" class="search-row" >
+            <form method="post" action="/search-ui" class="search-row">
                 <input class="search-input" type="text" name="query"
                     id="search-input"
                     placeholder="🔍  Enter search query..."
@@ -155,18 +157,27 @@
             {% endif %}
         </div>
 
-        <!-- PANEL ROW -->
+        <!-- PANEL ROW - TWO COLUMN LAYOUT -->
         <div class="panel-row">
 
-            <!-- RESULTS -->
+            <!-- LEFT COLUMN: RESULTS -->
             <div class="results-card">
                 <div class="results-header">
-                    <div class="results-title">Results</div>
+                    <div class="results-title">
+                        {% if results is defined and results %}
+                            Search Results
+                        {% elif recent_results %}
+                            Recent Results
+                        {% else %}
+                            Results
+                        {% endif %}
+                    </div>
                     {% if results is defined and results %}
                         <span class="badge">{{ results | length }} found</span>
                     {% endif %}
                 </div>
 
+                <!-- ACTIVE SEARCH RESULTS -->
                 {% if results is defined and results %}
                     {% for r in results %}
                     <div class="result-item">
@@ -188,16 +199,48 @@
                             <div class="result-folder">
                                 📂 {{ r.folder }} &nbsp;·&nbsp;
                                 <a href="javascript:void(0)"
-                                    <a href="javascript:void(0)"
-                                        data-path="{{ r.file_path }}"
-                                        onclick="openFile(this.dataset.path)"
-                                        class="open-link">Open File ↗</a>
+                                    data-path="{{ r.file_path }}"
+                                    onclick="openFile(this.dataset.path)"
+                                    class="open-link">Open File ↗</a>
                             </div>
                             <div class="result-chunk">{{ r.chunk | safe }}...</div>
                         </div>
                     </div>
                     {% endfor %}
 
+                <!-- RECENT RESULTS (shown when no active search) -->
+                {% elif recent_results %}
+                    <div style="padding: 4px 0;">
+                        {% for r in recent_results %}
+                        <div class="result-item">
+                            <div class="file-icon
+                                {% if r.file_name.endswith('.pdf') %}icon-pdf
+                                {% elif r.file_name.endswith('.csv') %}icon-csv
+                                {% elif r.file_name.endswith('.jpg') or r.file_name.endswith('.png') %}icon-img
+                                {% else %}icon-txt{% endif %}">
+                                {% if r.file_name.endswith('.pdf') %}📕
+                                {% elif r.file_name.endswith('.csv') %}📊
+                                {% elif r.file_name.endswith('.jpg') or r.file_name.endswith('.png') %}🖼️
+                                {% else %}📄{% endif %}
+                            </div>
+                            <div style="flex:1; min-width:0;">
+                                <div style="display:flex; justify-content:space-between; align-items:center; gap:8px;">
+                                    <div class="result-name">{{ r.file_name }}</div>
+                                    <span class="score-badge">{{ r.score | round(3) }}</span>
+                                </div>
+                                <div class="result-folder">
+                                    🔍 {{ r.query }} &nbsp;·&nbsp;
+                                    <a href="javascript:void(0)"
+                                        data-path="{{ r.file_path }}"
+                                        onclick="openFile(this.dataset.path)"
+                                        class="open-link">Open File ↗</a>
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+
+                <!-- EMPTY STATE -->
                 {% elif results is defined %}
                     <div class="no-results">
                         <div style="font-size:40px; margin-bottom:12px;">🔍</div>
@@ -207,6 +250,7 @@
                         </div>
                     </div>
 
+                <!-- DEFAULT WELCOME STATE -->
                 {% else %}
                     <div class="no-results">
                         <div style="font-size:40px; margin-bottom:12px;">✨</div>
@@ -218,7 +262,7 @@
                 {% endif %}
             </div>
 
-            <!-- SIDEBAR PANELS -->
+            <!-- RIGHT COLUMN: SIDEBAR CARDS -->
             <div>
                 <!-- ADD FILES — native picker, stores actual disk path -->
                 <div class="side-card">
@@ -246,7 +290,7 @@
                     </button>
                 </div>
 
-                <!-- ✅ SHARE FROM PHONE — new card -->
+                <!-- SHARE FROM PHONE — new card -->
                 <div class="side-card">
                     <div class="side-title">📱 Share from Phone</div>
                     <p style="font-size:12px; color:#64748b; margin-bottom:12px; line-height:1.6;">
@@ -618,40 +662,58 @@
 
 <!-- Sidebar Toggle JavaScript -->
 <script>
+    // Get elements
     const sidebar = document.getElementById('sidebar');
     const main = document.querySelector('.main');
     const overlay = document.getElementById('sidebar-overlay');
-
+    
+    // Toggle sidebar function
     function toggleSidebar() {
         const isMobile = window.innerWidth <= 768;
+        
         if (isMobile) {
+            // Mobile behavior - slide in/out
             sidebar.classList.toggle('mobile-open');
-            if (overlay) overlay.classList.toggle('active');
+            if (overlay) {
+                overlay.classList.toggle('active');
+            }
             localStorage.setItem('sidebarMobileOpen', sidebar.classList.contains('mobile-open'));
         } else {
+            // Desktop behavior - collapse/expand
             sidebar.classList.toggle('collapsed');
-            if (main) main.classList.toggle('expanded');
-            localStorage.setItem('sidebarCollapsed', sidebar.classList.contains('collapsed'));
+            if (main) {
+                main.classList.toggle('expanded');
+            }
+            // Save state to localStorage
+            const isCollapsed = sidebar.classList.contains('collapsed');
+            localStorage.setItem('sidebarCollapsed', isCollapsed);
         }
     }
-
+    
+    // Close sidebar on mobile (when clicking overlay)
     function closeSidebarMobile() {
         if (window.innerWidth <= 768) {
             sidebar.classList.remove('mobile-open');
-            if (overlay) overlay.classList.remove('active');
+            if (overlay) {
+                overlay.classList.remove('active');
+            }
             localStorage.setItem('sidebarMobileOpen', false);
         }
     }
-
+    
+    // Load saved state on page load
     document.addEventListener('DOMContentLoaded', function() {
         const isMobile = window.innerWidth <= 768;
+        
         if (isMobile) {
+            // Mobile - load mobile state
             const wasOpen = localStorage.getItem('sidebarMobileOpen') === 'true';
             if (wasOpen) {
                 sidebar.classList.add('mobile-open');
                 if (overlay) overlay.classList.add('active');
             }
         } else {
+            // Desktop - load collapsed state
             const savedState = localStorage.getItem('sidebarCollapsed');
             if (savedState === 'true') {
                 sidebar.classList.add('collapsed');
@@ -659,13 +721,16 @@
             }
         }
     });
-
+    
+    // Handle window resize
     let resizeTimer;
     window.addEventListener('resize', function() {
         clearTimeout(resizeTimer);
         resizeTimer = setTimeout(function() {
             const isMobile = window.innerWidth <= 768;
+            
             if (isMobile) {
+                // Switching to mobile view
                 if (sidebar.classList.contains('collapsed')) {
                     sidebar.classList.remove('collapsed');
                     if (main) main.classList.remove('expanded');
@@ -673,6 +738,7 @@
                 sidebar.classList.remove('mobile-open');
                 if (overlay) overlay.classList.remove('active');
             } else {
+                // Switching to desktop view
                 sidebar.classList.remove('mobile-open');
                 if (overlay) overlay.classList.remove('active');
                 const savedState = localStorage.getItem('sidebarCollapsed');
@@ -686,30 +752,34 @@
             }
         }, 150);
     });
-
+    
+    // Reset modal functions
     function showResetModal() {
         const modal = document.getElementById('reset-modal');
         if (modal) modal.style.display = 'flex';
     }
-
+    
     function hideResetModal() {
         const modal = document.getElementById('reset-modal');
         if (modal) modal.style.display = 'none';
     }
-
+    
+    // Close modal when clicking outside
     const resetModal = document.getElementById('reset-modal');
     if (resetModal) {
         resetModal.addEventListener('click', function(e) {
             if (e.target === this) hideResetModal();
         });
     }
-
+    
+    // Update active nav item based on current page
     function updateActiveNav() {
         const currentPath = window.location.pathname;
         const navItems = document.querySelectorAll('.nav-item');
+        
         navItems.forEach(item => {
             const href = item.getAttribute('href');
-            if ((href === currentPath) ||
+            if ((href === currentPath) || 
                 (currentPath === '/' && href === '/') ||
                 (currentPath === '/files' && href === '/files') ||
                 (currentPath === '/vault' && href === '/vault')) {
@@ -719,9 +789,9 @@
             }
         });
     }
-
+    
+    // Call on load
     updateActiveNav();
-
 </script>
 <script>
 let qrInstance = null;

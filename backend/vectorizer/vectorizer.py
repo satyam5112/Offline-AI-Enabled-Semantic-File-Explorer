@@ -17,14 +17,14 @@ def run_vectorizer(file_id, content):
         conn.execute("BEGIN")
 
         if file_id is None:
-            print("❌ Invalid file_id. Skipping vectorization.")
+            # print("❌ Invalid file_id. Skipping vectorization.")
             return
 
         chunks = chunk_text(content)
-        print("Chunks Created")
+        # print("Chunks Created")
 
         embeddings = get_embeddings(chunks)
-        print("Embeddings Generated")
+        # print("Embeddings Generated")
 
         if len(embeddings) == 0:
             print(f"[WARNING] Skipping file_id {file_id} due to empty content")
@@ -64,7 +64,7 @@ def run_vectorizer(file_id, content):
         # ---- Commit only if EVERYTHING succeeds ----
         conn.commit()
 
-        print(f"✅ Vectorized file_id {file_id}")
+        # print(f"✅ Vectorized file_id {file_id}")
 
     except Exception as e:
         # ❌ If anything fails → rollback DB

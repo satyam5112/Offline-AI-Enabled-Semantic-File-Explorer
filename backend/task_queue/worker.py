@@ -65,7 +65,7 @@ def worker():
             # ✅ Get dynamic timeout based on file size
             timeout = get_timeout(file_path)
             size_mb = os.path.getsize(file_path) / (1024 * 1024) if os.path.exists(file_path) else 0
-            print(f"\n⚙️ Processing: {task_type} → {file_path}")
+            # print(f"\n⚙️ Processing: {task_type} → {file_path}")
             print(f"📦 Size: {size_mb:.2f}MB | ⏱️ Timeout: {timeout}s")
 
             if task_type in ("create", "modify"):
@@ -94,7 +94,7 @@ def worker():
                     # ✅ Success
                     progress["processed"] += 1
                     progress["success_files"].append(os.path.basename(file_path))
-                    print(f"✅ Done: {os.path.basename(file_path)}")
+                    # print(f"✅ Done: {os.path.basename(file_path)}")
 
                 except Exception as e:
                     print(f"❌ Failed: {file_path} → {e}")

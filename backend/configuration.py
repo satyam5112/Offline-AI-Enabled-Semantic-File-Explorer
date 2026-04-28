@@ -7,4 +7,3 @@ DB_LOCATION = os.path.join(BASE_DIR, "fileTracker_Status_checker.db")
 
 # ---- Indexing Configuration ----
 FILES_TABLE = "files"
-FILE_CONTENTS_TABLE = "FileContents"

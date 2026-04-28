@@ -10,7 +10,7 @@ def delete_file_records(file_path):
     full_path = file_path
 
     try:
-        print(f"🧹 Deleting records for: {full_path}")
+        # print(f"🧹 Deleting records for: {full_path}")
 
         # 🔍 Step 1: Get file_id
         cursor.execute(
@@ -59,7 +59,7 @@ def delete_file_records(file_path):
         conn.commit()
         save_index(index)
 
-        print(f"✅ Deleted file_id {file_id} from DB")
+        # print(f"✅ Deleted file_id {file_id} from DB")
 
     except Exception as e:
         conn.rollback()

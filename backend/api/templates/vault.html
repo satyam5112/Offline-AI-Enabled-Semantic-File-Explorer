@@ -3,12 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>DocS AI — Vault</title>
+    <title>DocS — Vault</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/styles.css">
     <link rel="stylesheet" href="/static/vault.css">
+    <link rel="icon" type="image/svg+xml" href="/static/logo.svg">
 </head>
 <body class="vault-body">
 
@@ -30,9 +31,12 @@
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
         <div class="logo">
-            <div class="logo-icon">
-                <span class="logo-text">DocS AI</span>
+            <!-- This div will be hidden when collapsed -->
+            <div class="logo-icon logo-expanded">
+                <img src="/static/logo.svg" alt="DocS AI" class="sidebar-logo" style="height:38px; width:auto;">
             </div>
+            <!-- This span shows only when collapsed -->
+            <span class="logo-collapsed">D</span>
             <button class="toggle-btn" onclick="toggleSidebar()">
                 <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
                     <path d="M4 6H20M4 12H20M4 18H20" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>

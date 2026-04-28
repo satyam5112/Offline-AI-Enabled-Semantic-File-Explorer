@@ -34,10 +34,6 @@ VAULT_CONFIG      = os.path.join(_VAULT_MODULE_DIR, "vault_config.json")
 
 os.makedirs(VAULT_DIR, exist_ok=True)
 
-# Print paths on import so we can verify in terminal
-# print(f"🔐 Vault config path: {VAULT_CONFIG}")
-# print(f"🔐 Vault store path:  {VAULT_DIR}")
-
 # ── DB location (reuse app DB) ────────────────────────────────────────────────
 try:
     from backend.configuration import DB_LOCATION
@@ -104,11 +100,11 @@ def change_password(old_password: str, new_password: str) -> dict:
     config = _load_config()
     config["password_hash"] = _hash_password(new_password)
 
-    print("BEFORE SAVE:", config)   # 👈 add this
+    # print("BEFORE SAVE:", config)   # 👈 add this
 
     _save_config(config)
 
-    print("AFTER SAVE:", _load_config())  # 👈 add this
+    # print("AFTER SAVE:", _load_config())  # 👈 add this
 
     return {"success": True}
 
@@ -265,13 +261,13 @@ def add_to_vault(file_path: str, password: str) -> dict:
         norm_path = os.path.normpath(file_path)
         if os.path.exists(norm_path):
             os.remove(norm_path)
-            print(f"🗑️ Deleted original: {norm_path}")
+            # print(f"🗑️ Deleted original: {norm_path}")
         else:
             # Try with forward slashes converted (Windows path mismatch)
             alt_path = file_path.replace("/", "\\")
             if os.path.exists(alt_path):
                 os.remove(alt_path)
-                print(f"🗑️ Deleted original (alt path): {alt_path}")
+                # print(f"🗑️ Deleted original (alt path): {alt_path}")
             else:
                 print(f"⚠️ Could not delete original — file not found at: {norm_path}")
                 print(f"   The file was encrypted into vault but original may still exist on disk.")
@@ -298,7 +294,7 @@ def add_to_vault(file_path: str, password: str) -> dict:
             if os.path.exists(norm) and norm != os.path.normpath(file_path):
                 try:
                     os.remove(norm)
-                    print(f"🗑️ Deleted duplicate: {norm}")
+                    # print(f"🗑️ Deleted duplicate: {norm}")
                 except Exception as del_err:
                     print(f"⚠️ Could not delete duplicate {norm}: {del_err}")
 

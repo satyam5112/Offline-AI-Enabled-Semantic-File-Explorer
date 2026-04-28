@@ -1,106 +1,15 @@
+# This module handles the core indexing logic:
+# - Extracts metadata
+# - Inserts/updates file records in the database
+# - Returns file_id for downstream processing (vectorization, etc.)
+
 import os
-import re
 import sqlite3
 
 from backend.configuration import (
     DB_LOCATION,
     FILES_TABLE,
 )
-# from backend.tempCodeRunnerFile import TABLE_NAME   
-
-# 1. DB CONNECTION
-
-# conn = sqlite3.connect(DB_LOCATION)
-# cursor = conn.cursor()
-
-# 2. CREATE TABLE
-
-# print("🛠️ Creating table if not exists...")
-
-# create_table_query = f'''
-# CREATE TABLE IF NOT EXISTS {FILES_TABLE} (
-#     id INTEGER PRIMARY KEY AUTOINCREMENT,
-#     path TEXT NOT NULL UNIQUE,
-#     name TEXT NOT NULL,
-#     extension TEXT,
-#     size INTEGER,
-#     modified_time INTEGER,
-#     created_time INTEGER,
-#     folder TEXT
-# );
-# '''
-
-# cursor.execute(create_table_query)
-
-# 3. SCAN FUNCTION
-
-def scan_directory(root):
-
-    if not os.path.exists(root):
-        print("❌ ERROR: Base folder does NOT exist!")
-        return
-
-    file_count = 0
-
-    for dirpath, dirnames, filenames in os.walk(root):
-        # print(f"\n➡️ Entering directory: {dirpath}")
-
-        if not filenames:
-            print("⚠️ No files in this directory")
-
-        for file in filenames:
-
-            full_path = os.path.abspath(os.path.join(dirpath, file))
-
-            try:
-                stat = os.stat(full_path)
-            except FileNotFoundError:
-                print("   ❌ File disappeared:", full_path)
-                continue
-
-            # RELATIVE PATH
-            try:
-                relative_path = file_path
-                
-            except Exception as e:
-                print("   ❌ Error in path conversion:", e)
-                continue
-
-            # METADATA
-            name = file
-            extension = os.path.splitext(file)[1]
-            size = stat.st_size
-            modified_time = int(stat.st_mtime)
-            created_time = int(stat.st_birthtime)
-
-            folder = os.path.normpath(os.path.dirname(relative_path)).replace("\\", "/")
-
-            # INSERT QUERY
-            insert_query = f'''
-            INSERT INTO {FILES_TABLE} 
-            (path, name, extension, size, modified_time, created_time, folder)
-            VALUES (?, ?, ?, ?, ?, ?, ?)
-            ON CONFLICT(path) DO UPDATE SET
-                size = excluded.size,
-                modified_time = excluded.modified_time;
-            '''
-
-            try:
-                cursor.execute(insert_query, (
-                    relative_path,
-                    name,
-                    extension,
-                    size,
-                    modified_time,
-                    created_time,
-                    folder
-                ))
-
-                file_count += 1
-
-            except Exception as e:
-                print("   ❌ DB Insert Error:", e)
-
 
 def process_file(file_path, update=False):
 
@@ -173,13 +82,3 @@ def process_file(file_path, update=False):
 
     finally:
         conn.close()
-
-
-# if __name__ == "__main__":
-#     print("🚀 Script started")
-
-#     # Start bulk indexing
-#     scan_directory(BASE_FOLDER_ADDRESS)
-
-#     conn.commit()
-#     conn.close()

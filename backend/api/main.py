@@ -51,8 +51,8 @@ try:
     print("✅ Vault router registered")
 except Exception as _vault_err:
     print(f"⚠️ Vault router failed to load: {_vault_err}")
-    print("   → Run: pip install cryptography")
-    print("   → Make sure backend/vault/__init__.py exists")
+    # print("   → Run: pip install cryptography")
+    # print("   → Make sure backend/vault/__init__.py exists")
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
 # ---- Request Model ----
@@ -84,7 +84,7 @@ def run_watcher():
                     args=(folder,),
                     daemon=True
                 ).start()
-                print(f"👀 Restored watcher: {folder}")
+                # print(f"👀 Restored watcher: {folder}")
     except Exception as e:
         print(f"❌ Error restoring watchers: {e}")
 
@@ -238,7 +238,7 @@ def home(request: Request, msg: str = ""):
     return templates.TemplateResponse(
         request=request,
         name="index.html",
-        context={"stats": status(), "msg": "", "folders": folders, "recent_searches": get_recent_searches()}
+        context={"stats": status(), "msg": msg, "folders": folders, "recent_searches": get_recent_searches(), "recent_results": get_recent_results()}
     )
 
 @app.get("/files")
@@ -277,7 +277,7 @@ def search_ui(request: Request,
             return templates.TemplateResponse(
                 request=request,
                 name="index.html",
-                context={"results": [], "stats": status(), "msg": "", "folders": [], "recent_searches": get_recent_searches()}
+                context={"results": [], "stats": status(), "msg": "", "folders": [], "recent_searches": get_recent_searches(), "recent_results": get_recent_results()}
             )
 
         # ✅ Save search query to DB
@@ -289,10 +289,13 @@ def search_ui(request: Request,
             folder=folder if folder else None
         )
 
+        # ✅ Save recent results
+        save_recent_results(query.strip(), results)
+
         return templates.TemplateResponse(
             request=request,
             name="index.html",
-            context={"results": results, "stats": status(), "msg": "", "folders": get_folders(), "recent_searches": get_recent_searches()}
+            context={"results": results, "stats": status(), "msg": "", "folders": get_folders(), "recent_searches": get_recent_searches(), "recent_results": get_recent_results()}
         )
 
     except Exception as e:
@@ -304,7 +307,7 @@ def search_ui_get(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="index.html",
-        context={"stats": status(), "msg": "", "folders": get_folders(), "recent_searches": get_recent_searches()}
+        context={"stats": status(), "msg": "", "folders": get_folders(), "recent_searches": get_recent_searches(), "recent_results": get_recent_results()}
     )
 
 @app.post("/clear-searches")
@@ -329,9 +332,9 @@ def open_file(path: str):
 @app.get("/open-native")
 def open_native(path: str):
     try:
-        print(f"📥 Raw path received: '{path}'")
+        # print(f"📥 Raw path received: '{path}'")
         full_path = os.path.normpath(path)
-        print(f"🔍 Trying to open: {full_path}")
+        # print(f"🔍 Trying to open: {full_path}")
 
         if os.path.exists(full_path):
             subprocess.Popen(f'start "" "{full_path}"', shell=True)
@@ -370,7 +373,7 @@ def upload_files(files: List[UploadFile] = File(...)):
             conn.close()
 
             if existing:
-                print(f"⚠️ Already indexed: {filename}")
+                # print(f"⚠️ Already indexed: {filename}")
                 skipped.append(filename)
                 continue  # ✅ Skip this file entirely
 
@@ -414,16 +417,18 @@ def reset_db_route():
         cursor.execute("DELETE FROM files")
         cursor.execute("DELETE FROM vector_mapping")
         cursor.execute("DELETE FROM watched_folders")
+
         cursor.execute("DELETE FROM sqlite_sequence WHERE name='files'")
+        cursor.execute("DELETE FROM sqlite_sequence WHERE name='watched_folders'")
         cursor.execute("DELETE FROM sqlite_sequence WHERE name='vector_mapping'")
         conn.commit()
         conn.close()
-        print("✅ Database cleared")
+        # print("✅ Database cleared")
 
         # ✅ Reset FAISS
         index.reset()
         save_index(index)
-        print("✅ FAISS reset")
+        # print("✅ FAISS reset")
 
         return RedirectResponse(url="/", status_code=303)
 
@@ -572,7 +577,7 @@ async def mobile_upload(file: UploadFile = File(...)):
     global recent_upload_count
 
     try:
-        print("📁 Shared folder:", SHARED_FOLDER)
+        # print("📁 Shared folder:", SHARED_FOLDER)
 
         file_path = os.path.join(SHARED_FOLDER, file.filename)
 
@@ -580,7 +585,7 @@ async def mobile_upload(file: UploadFile = File(...)):
         with open(file_path, "wb") as f:
             shutil.copyfileobj(file.file, f)
 
-        print("📥 Saved:", file_path)
+        # print("📥 Saved:", file_path)
 
         # ✅ Increment counter for toast
         recent_upload_count += 1
@@ -640,7 +645,7 @@ async def vault_add_upload(file: UploadFile = File(...), password: str = Form(..
         conn.commit()
         conn.close()
 
-        print(f"🔐 Vault upload: {original_name} → {encrypted_name}")
+        # print(f"🔐 Vault upload: {original_name} → {encrypted_name}")
         return {"success": True, "message": f"{original_name} encrypted and added to vault"}
 
     except Exception as e:
@@ -723,7 +728,7 @@ def index_files_by_path(request: Request, paths: str = Form(...)):
             conn.close()
 
             if existing:
-                print(f"⚠️ Already indexed: {filename}")
+                # print(f"⚠️ Already indexed: {filename}")
                 skipped.append(filename)
                 continue
 
@@ -736,7 +741,7 @@ def index_files_by_path(request: Request, paths: str = Form(...)):
             queued_files.add(norm_path)
             file_queue.put(("create", norm_path))
             uploaded.append(filename)
-            print(f"✅ Queued for indexing: {norm_path}")
+            # print(f"✅ Queued for indexing: {norm_path}")
 
     if uploaded:
         msg = quote(f"success: Successfully added: {', '.join(uploaded)}")

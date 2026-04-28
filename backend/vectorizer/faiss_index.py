@@ -15,7 +15,7 @@ def load_index():
 
         # 🔥 SAFETY CHECK
         if not isinstance(idx, faiss.IndexIDMap):
-            print("⚠️ Old FAISS index detected. Recreating...")
+            # print("⚠️ Old FAISS index detected. Recreating...")
             return create_index()
 
         return idx
