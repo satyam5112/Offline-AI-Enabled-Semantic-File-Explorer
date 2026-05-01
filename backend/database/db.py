@@ -3,7 +3,6 @@ import sqlite3
 from backend.configuration import (
     DB_LOCATION,
     FILES_TABLE,
-    FILE_CONTENTS_TABLE
 )
 
 # -------------------------------
@@ -19,7 +18,6 @@ def initialize_database():
     conn = get_connection()
     cursor = conn.cursor()
 
-    # Files Table (already used in indexer)
     cursor.execute(f"""
     CREATE TABLE IF NOT EXISTS {FILES_TABLE} (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -30,7 +28,7 @@ def initialize_database():
         modified_time INTEGER,
         created_time INTEGER,
         folder TEXT
-    );
+    )
     """)
 
     cursor.execute("""
@@ -40,13 +38,38 @@ def initialize_database():
         file_id INTEGER,
         chunk_text TEXT,
         chunk_index INTEGER,
-        FOREIGN KEY (file_id) REFERENCES Files(id)
+        FOREIGN KEY (file_id) REFERENCES files(id)
+    )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS watched_folders (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        path TEXT NOT NULL UNIQUE
+    )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS recent_searches (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        query TEXT NOT NULL UNIQUE,
+        searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+    """)
+
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS recent_results (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        query TEXT,
+        file_name TEXT,
+        file_path TEXT,
+        score REAL,
+        searched_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
 
     conn.commit()
     conn.close()
-
 # -------------------------------
 # Get All Files (for extractor loop)
 # -------------------------------
@@ -65,19 +88,6 @@ def get_all_files():
     # for file in files:
     #     print(file)
     return files
-
-# Function to get the content from file_contents table (for vectorizer)
-
-def get_all_file_contents():
-    conn = get_connection()
-    cursor = conn.cursor()
-
-    cursor.execute(f"SELECT file_id, content FROM {FILE_CONTENTS_TABLE}")
-    rows = cursor.fetchall()
-
-    conn.close()
-
-    return [{"file_id": row[0], "content": row[1]} for row in rows]
 
 # -------------------------------
 # Insert Vector Mapping

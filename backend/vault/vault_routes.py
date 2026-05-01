@@ -9,6 +9,7 @@ Register in main.py with:
 
 import os
 import subprocess
+from unittest import result
 from fastapi import APIRouter, Form, Request
 from fastapi.responses import JSONResponse, RedirectResponse, FileResponse
 from fastapi.templating import Jinja2Templates
@@ -96,23 +97,29 @@ def vault_change_password(
     confirm_password: str = Form(...)
 ):
     if new_password != confirm_password:
-        return JSONResponse(
-            {"success": False, "error": "New passwords do not match"},
-            status_code=400
+        return RedirectResponse(
+            url=f"/vault?msg=error:{quote('New passwords do not match')}",
+            status_code=303
         )
 
     if len(new_password.strip()) < 1:
-        return JSONResponse(
-            {"success": False, "error": "New password cannot be empty"},
-            status_code=400
+        return RedirectResponse(
+            url=f"/vault?msg=error:{quote('New password cannot be empty')}",
+            status_code=303
         )
 
     result = change_password(current_password, new_password)
 
     if result["success"]:
-        return JSONResponse({"success": True, "message": "Password changed successfully"})
+        return RedirectResponse(
+            url=f"/vault?msg=success:Password changed successfully",
+            status_code=303
+        )
 
-    return JSONResponse({"success": False, "error": result["error"]}, status_code=400)
+    return RedirectResponse(
+        url=f"/vault?msg=error:{quote(result['error'])}",
+        status_code=303
+    )
 
 #  VAULT FILE OPERATIONS
 @router.post("/vault/add")

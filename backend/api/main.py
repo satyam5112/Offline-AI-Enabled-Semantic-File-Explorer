@@ -26,11 +26,47 @@ from backend.task_queue.notifications import notification_queue
 from urllib.parse import quote, unquote
 from fastapi.responses import HTMLResponse
 from pathlib import Path
+from backend.database.db import initialize_database
 
+# ---- Shared folder (moved up so run_watcher can use it) ----
+def _get_shared_folder():
+    userprofile = os.environ.get("USERPROFILE", "")
+    onedrive_desktop = os.path.join(userprofile, "OneDrive", "Desktop")
+    if os.path.exists(onedrive_desktop):
+        return os.path.join(onedrive_desktop, "shared")
+    return os.path.join(userprofile, "Desktop", "shared")
+
+SHARED_FOLDER = _get_shared_folder()
+os.makedirs(SHARED_FOLDER, exist_ok=True)
+
+# ---- Watcher starter ----
+def run_watcher():
+    if os.path.exists(SHARED_FOLDER):
+        threading.Thread(
+            target=start_watching,
+            args=(SHARED_FOLDER,),
+            daemon=True
+        ).start()
+    try:
+        conn = sqlite3.connect(DB_LOCATION)
+        cursor = conn.cursor()
+        cursor.execute("SELECT path FROM watched_folders")
+        folders = [row[0] for row in cursor.fetchall()]
+        conn.close()
+        for folder in folders:
+            if os.path.exists(folder):
+                threading.Thread(
+                    target=start_watching,
+                    args=(folder,),
+                    daemon=True
+                ).start()
+    except Exception as e:
+        print(f"Error restoring watchers: {e}")
 
 # ---- Lifespan ----
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    initialize_database()
     watcher_thread = threading.Thread(target=run_watcher, daemon=True)
     watcher_thread.start()
     print("File watcher started alongside FastAPI")
@@ -38,6 +74,8 @@ async def lifespan(app: FastAPI):
     print("FastAPI shutting down")
 
 app = FastAPI(lifespan=lifespan)
+
+recent_upload_count = 0
 
 # ---- Static + Templates ----
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -50,9 +88,10 @@ try:
     app.include_router(vault_router)
     print("Vault router registered")
 except Exception as _vault_err:
+    import traceback
     print(f"Vault router failed to load: {_vault_err}")
-    # print("Run: pip install cryptography")
-    # print("Make sure backend/vault/__init__.py exists")
+    traceback.print_exc()
+
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
 # ---- Request Model ----
@@ -60,35 +99,6 @@ class SearchRequest(BaseModel):
     query: str
     file_type: str | None = None
     folder: str | None = None
-
-# ---- Watcher starter ----
-def run_watcher():
-    if os.path.exists(SHARED_FOLDER):
-        threading.Thread(
-            target=start_watching,
-            args=(SHARED_FOLDER,),
-            daemon=True
-        ).start()
-    # Load watched folders from DB on startup
-    try:
-        conn = sqlite3.connect(DB_LOCATION)
-        cursor = conn.cursor()
-        cursor.execute("SELECT path FROM watched_folders")
-        folders = [row[0] for row in cursor.fetchall()]
-        conn.close()
-
-        for folder in folders:
-            if os.path.exists(folder):
-                threading.Thread(
-                    target=start_watching,
-                    args=(folder,),
-                    daemon=True
-                ).start()
-                # print(f"Restored watcher: {folder}")
-    except Exception as e:
-        print(f"Error restoring watchers: {e}")
-
-recent_upload_count = 0 
 
 # ---- Status ----
 @app.get("/status")
@@ -681,7 +691,7 @@ def pick_files_dialog():
                 $dialog.FileNames -join '|'
             }
             """
-        ], capture_output=True, text=True, timeout=60)
+        ], capture_output=True, text=True, timeout=60,creationflags=subprocess.CREATE_NO_WINDOW)
 
         raw = result.stdout.strip()
         if raw:
@@ -765,7 +775,7 @@ def pick_folder_dialog():
                 Write-Output $dialog.SelectedPath
             }
             """
-        ], capture_output=True, text=True, timeout=60)
+        ], capture_output=True, text=True, timeout=60,creationflags=subprocess.CREATE_NO_WINDOW)
 
         path = result.stdout.strip()
 
