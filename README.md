@@ -135,7 +135,7 @@ The app starts the backend server and opens the UI in your default browser autom
 
 ### Vault
 - Navigate to the **Vault** page
-- Default password is `1234` — change it immediately after first use
+- Default password is `1234`/`5112` — change it immediately after first use
 - Add files to encrypt them with AES-128
 - Original files are permanently deleted after encryption
 - Vault files are hidden from all search results
