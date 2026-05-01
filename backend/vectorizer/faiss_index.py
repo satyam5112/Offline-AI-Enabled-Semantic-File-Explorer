@@ -13,9 +13,9 @@ def load_index():
     if os.path.exists(FAISS_INDEX_FILE):
         idx = faiss.read_index(FAISS_INDEX_FILE)
 
-        # 🔥 SAFETY CHECK
+        # SAFETY CHECK
         if not isinstance(idx, faiss.IndexIDMap):
-            # print("⚠️ Old FAISS index detected. Recreating...")
+            # print("Old FAISS index detected. Recreating...")
             return create_index()
 
         return idx

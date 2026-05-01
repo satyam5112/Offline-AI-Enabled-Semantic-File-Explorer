@@ -16,7 +16,7 @@ def is_ignored_file(path):
     return any(x in path for x in ignored_keywords)
 
 def scan_folder(folder_path):
-    # print(f"\n🔍 Scanning folder: {folder_path}\n")
+    # print(f"\nScanning folder: {folder_path}\n")
 
     # ---- Step 1: Collect all valid files first ----
     valid_files = []
@@ -42,13 +42,13 @@ def scan_folder(folder_path):
     progress["active"] = True
     progress["current_file"] = ""
 
-    # print(f"📊 Total valid files found: {len(valid_files)}")
+    # print(f"Total valid files found: {len(valid_files)}")
 
     # ---- Step 3: Queue all files ----
     for file_path in valid_files:
         queued_files.add(file_path)
         file_queue.put(("create", file_path))
-        # print(f"📌 Queued: {file_path}")
+        # print(f"Queued: {file_path}")
 
-    # print("\n✅ Scan Completed")
-    # print(f"📥 Added to queue: {len(valid_files)}\n")
+    # print("\n Scan Completed")
+    # print(f"Added to queue: {len(valid_files)}\n")

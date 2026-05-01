@@ -33,9 +33,9 @@ from pathlib import Path
 async def lifespan(app: FastAPI):
     watcher_thread = threading.Thread(target=run_watcher, daemon=True)
     watcher_thread.start()
-    print("✅ File watcher started alongside FastAPI")
+    print("File watcher started alongside FastAPI")
     yield
-    print("🛑 FastAPI shutting down")
+    print("FastAPI shutting down")
 
 app = FastAPI(lifespan=lifespan)
 
@@ -44,15 +44,15 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 BASE_PATH = Path(__file__).resolve().parent
 app.mount("/static", StaticFiles(directory=os.path.join(BASE_DIR, "static")), name="static")
 
-# ---- Vault router (safe import — won't crash server if cryptography missing) ----
+# Vault router (safe import won't crash server if cryptography missing)
 try:
     from backend.vault.vault_routes import router as vault_router
     app.include_router(vault_router)
-    print("✅ Vault router registered")
+    print("Vault router registered")
 except Exception as _vault_err:
-    print(f"⚠️ Vault router failed to load: {_vault_err}")
-    # print("   → Run: pip install cryptography")
-    # print("   → Make sure backend/vault/__init__.py exists")
+    print(f"Vault router failed to load: {_vault_err}")
+    # print("Run: pip install cryptography")
+    # print("Make sure backend/vault/__init__.py exists")
 templates = Jinja2Templates(directory=os.path.join(BASE_DIR, "templates"))
 
 # ---- Request Model ----
@@ -69,7 +69,7 @@ def run_watcher():
             args=(SHARED_FOLDER,),
             daemon=True
         ).start()
-    # ✅ Load watched folders from DB on startup
+    # Load watched folders from DB on startup
     try:
         conn = sqlite3.connect(DB_LOCATION)
         cursor = conn.cursor()
@@ -84,9 +84,9 @@ def run_watcher():
                     args=(folder,),
                     daemon=True
                 ).start()
-                # print(f"👀 Restored watcher: {folder}")
+                # print(f"Restored watcher: {folder}")
     except Exception as e:
-        print(f"❌ Error restoring watchers: {e}")
+        print(f"Error restoring watchers: {e}")
 
 recent_upload_count = 0 
 
@@ -119,19 +119,19 @@ def status():
     }
 
 def save_search(query: str):
-    """Save search query to DB — max 10 recent searches"""
+    """Save search query to DB max 10 recent searches"""
     try:
         conn = sqlite3.connect(DB_LOCATION)
         cursor = conn.cursor()
 
-        # ✅ Insert or update timestamp if query exists
+        # Insert or update timestamp if query exists
         cursor.execute("""
             INSERT INTO recent_searches (query, searched_at)
             VALUES (?, CURRENT_TIMESTAMP)
             ON CONFLICT(query) DO UPDATE SET searched_at = CURRENT_TIMESTAMP
         """, (query,))
 
-        # ✅ Keep only last 10
+        # Keep only last 10
         cursor.execute("""
             DELETE FROM recent_searches
             WHERE id NOT IN (
@@ -144,7 +144,7 @@ def save_search(query: str):
         conn.commit()
         conn.close()
     except Exception as e:
-        print(f"❌ Error saving search: {e}")
+        print(f"Error saving search: {e}")
 
 def get_recent_searches():
     """Get last 10 searches"""
@@ -201,7 +201,7 @@ def save_recent_results(query: str, results: list):
         conn.commit()
         conn.close()
     except Exception as e:
-        print(f"❌ Error saving recent results: {e}")
+        print(f"Error saving recent results: {e}")
 
 
 def get_recent_results():
@@ -232,7 +232,7 @@ def home(request: Request, msg: str = ""):
         folders = [row[0] for row in cursor.fetchall()]
         conn.close()
     except Exception as e:
-        print("❌ Error loading folders:", e)
+        print("Error loading folders:", e)
         folders = []
 
     return templates.TemplateResponse(
@@ -280,7 +280,7 @@ def search_ui(request: Request,
                 context={"results": [], "stats": status(), "msg": "", "folders": [], "recent_searches": get_recent_searches(), "recent_results": get_recent_results()}
             )
 
-        # ✅ Save search query to DB
+        # Save search query to DB
         save_search(query.strip())
 
         results = search_files(
@@ -289,7 +289,7 @@ def search_ui(request: Request,
             folder=folder if folder else None
         )
 
-        # ✅ Save recent results
+        # Save recent results
         save_recent_results(query.strip(), results)
 
         return templates.TemplateResponse(
@@ -299,7 +299,7 @@ def search_ui(request: Request,
         )
 
     except Exception as e:
-        print("❌ ERROR:", e)
+        print("ERROR:", e)
         return {"error": str(e)}
 
 @app.get("/search-ui")
@@ -332,9 +332,9 @@ def open_file(path: str):
 @app.get("/open-native")
 def open_native(path: str):
     try:
-        # print(f"📥 Raw path received: '{path}'")
+        # print(f"Raw path received: '{path}'")
         full_path = os.path.normpath(path)
-        # print(f"🔍 Trying to open: {full_path}")
+        # print(f"Trying to open: {full_path}")
 
         if os.path.exists(full_path):
             subprocess.Popen(f'start "" "{full_path}"', shell=True)
@@ -361,7 +361,7 @@ def upload_files(files: List[UploadFile] = File(...)):
         if ext not in allowed_ext:
             continue
 
-        # ✅ Check DB before saving to temp
+        #Check DB before saving to temp
         try:
             conn = sqlite3.connect(DB_LOCATION)
             cursor = conn.cursor()
@@ -373,14 +373,14 @@ def upload_files(files: List[UploadFile] = File(...)):
             conn.close()
 
             if existing:
-                # print(f"⚠️ Already indexed: {filename}")
+                # print(f"Already indexed: {filename}")
                 skipped.append(filename)
-                continue  # ✅ Skip this file entirely
+                continue  # Skip this file entirely
 
         except Exception as e:
-            print(f"❌ DB check error: {e}")
+            print(f"DB check error: {e}")
 
-        # ✅ Only reaches here if file is NOT already indexed
+        #Only reaches here if file is NOT already indexed
         temp_path = os.path.join(temp_dir, filename)
 
         try:
@@ -393,9 +393,9 @@ def upload_files(files: List[UploadFile] = File(...)):
                 uploaded.append(filename)
 
         except Exception as e:
-            print(f"❌ Upload error for {filename}: {e}")
+            print(f"Upload error for {filename}: {e}")
 
-    # ✅ Return outside the loop
+    # Return outside the loop
     if uploaded:
         msg = quote(f"success: Successfully added: {', '.join(uploaded)}")
     elif skipped:
@@ -408,10 +408,10 @@ def upload_files(files: List[UploadFile] = File(...)):
 @app.post("/reset")
 def reset_db_route():
     try:
-        # ✅ Stop all watchers first
+        # Stop all watchers first
         stop_all_watchers()
 
-        # ✅ Clear DB
+        # Clear DB
         conn = sqlite3.connect(DB_LOCATION)
         cursor = conn.cursor()
         cursor.execute("DELETE FROM files")
@@ -423,17 +423,17 @@ def reset_db_route():
         cursor.execute("DELETE FROM sqlite_sequence WHERE name='vector_mapping'")
         conn.commit()
         conn.close()
-        # print("✅ Database cleared")
+        # print("Database cleared")
 
-        # ✅ Reset FAISS
+        # Reset FAISS
         index.reset()
         save_index(index)
-        # print("✅ FAISS reset")
+        # print("FAISS reset")
 
         return RedirectResponse(url="/", status_code=303)
 
     except Exception as e:
-        print(f"❌ Reset Error: {e}")
+        print(f"Reset Error: {e}")
         return {"error": str(e)}
 
 @app.post("/add-folder")
@@ -460,10 +460,10 @@ def add_folder(path: str = Form(...)):
                 status_code=303
             )
 
-        # ✅ Scan existing files
+        # Scan existing files
         threading.Thread(target=scan_folder, args=(path,), daemon=True).start()
 
-        # ✅ Start watcher
+        # Start watcher
         threading.Thread(target=start_watching, args=(path,), daemon=True).start()
 
         return RedirectResponse(
@@ -519,7 +519,7 @@ def get_progress():
 
 @app.post("/clear-report")
 def clear_report():
-    # ✅ Reset after user closes report
+    # Reset after user closes report
     progress["report_ready"] = False
     progress["success_files"] = []
     progress["failed_files"] = []
@@ -530,7 +530,7 @@ def clear_report():
 
 
 # ================================================================
-# MOBILE SHARE — wireless file transfer from phone to laptop
+# MOBILE SHARE wireless file transfer from phone to laptop
 # ================================================================
 # Use USERPROFILE (real Desktop) not expanduser (may give OneDrive Desktop)
 def _get_shared_folder():
@@ -558,7 +558,7 @@ def _get_local_ip():
 
 @app.get("/mobile/qr-info")
 def mobile_qr_info():
-    """Returns LAN IP and phone URL — used by the QR modal."""
+    """Returns LAN IP and phone URL used by the QR modal."""
     ip = _get_local_ip()
     return {
         "ip": ip,
@@ -577,23 +577,23 @@ async def mobile_upload(file: UploadFile = File(...)):
     global recent_upload_count
 
     try:
-        # print("📁 Shared folder:", SHARED_FOLDER)
+        # print("Shared folder:", SHARED_FOLDER)
 
         file_path = os.path.join(SHARED_FOLDER, file.filename)
 
-        # ✅ Save file
+        # Save file
         with open(file_path, "wb") as f:
             shutil.copyfileobj(file.file, f)
 
-        # print("📥 Saved:", file_path)
+        # print("Saved:", file_path)
 
-        # ✅ Increment counter for toast
+        # Increment counter for toast
         recent_upload_count += 1
 
         return {"status": "success"}
 
     except Exception as e:
-        print("❌ Upload error:", e)
+        print("Upload error:", e)
         return {"status": "error", "message": str(e)}
 
 @app.get("/mobile/recent")
@@ -607,7 +607,7 @@ def get_recent():
 async def vault_add_upload(file: UploadFile = File(...), password: str = Form(...)):
     """
     Upload a file directly into the vault.
-    Encrypts in-place — never saved to a normal location.
+    Encrypts in-place never saved to a normal location.
     original_path is NULL because this file came from phone/browser upload,
     not from an existing location on this PC.
     """
@@ -634,7 +634,7 @@ async def vault_add_upload(file: UploadFile = File(...), password: str = Form(..
         # Encrypt directly to vault
         encrypt_file(tmp_path, encrypted_path, password)
 
-        # Record in DB — original_path is NULL (uploaded from browser, no PC path)
+        # Record in DB original_path is NULL (uploaded from browser, no PC path)
         ensure_vault_table()
         conn = sqlite3.connect(DB_LOCATION)
         cursor = conn.cursor()
@@ -645,13 +645,13 @@ async def vault_add_upload(file: UploadFile = File(...), password: str = Form(..
         conn.commit()
         conn.close()
 
-        # print(f"🔐 Vault upload: {original_name} → {encrypted_name}")
+        # print(f"Vault upload: {original_name} {encrypted_name}")
         return {"success": True, "message": f"{original_name} encrypted and added to vault"}
 
     except Exception as e:
         if os.path.exists(encrypted_path):
             os.remove(encrypted_path)
-        print(f"❌ vault_add_upload error: {e}")
+        print(f"vault_add_upload error: {e}")
         import traceback; traceback.print_exc()
         return {"success": False, "error": str(e)}
     finally:
@@ -665,7 +665,7 @@ async def vault_add_upload(file: UploadFile = File(...), password: str = Form(..
 def pick_files_dialog():
     """
     Opens a native Windows file picker.
-    Returns actual disk paths — no file copying needed.
+    Returns actual disk paths no file copying needed.
     """
     try:
         result = subprocess.run([
@@ -692,11 +692,10 @@ def pick_files_dialog():
     except Exception as e:
         return {"paths": [], "error": str(e)}
 
-
 @app.post("/index-files-by-path")
 def index_files_by_path(request: Request, paths: str = Form(...)):
     """
-    Index files by their actual disk paths — no copying.
+    Index files by their actual disk paths no copying.
     paths is a pipe-separated list of absolute file paths.
     """
     allowed_ext = {".txt", ".pdf", ".jpg", ".jpeg", ".png", ".csv"}
@@ -707,7 +706,7 @@ def index_files_by_path(request: Request, paths: str = Form(...)):
 
     for file_path in file_paths:
         if not os.path.exists(file_path):
-            print(f"⚠️ File not found: {file_path}")
+            print(f"File not found: {file_path}")
             continue
 
         filename = os.path.basename(file_path)
@@ -728,20 +727,20 @@ def index_files_by_path(request: Request, paths: str = Form(...)):
             conn.close()
 
             if existing:
-                # print(f"⚠️ Already indexed: {filename}")
+                # print(f"Already indexed: {filename}")
                 skipped.append(filename)
                 continue
 
         except Exception as e:
-            print(f"❌ DB check error: {e}")
+            print(f"DB check error: {e}")
 
-        # Queue the actual disk path — no copying
+        # Queue the actual disk path no copying
         norm_path = os.path.normpath(file_path)
         if norm_path not in queued_files:
             queued_files.add(norm_path)
             file_queue.put(("create", norm_path))
             uploaded.append(filename)
-            # print(f"✅ Queued for indexing: {norm_path}")
+            # print(f"Queued for indexing: {norm_path}")
 
     if uploaded:
         msg = quote(f"success: Successfully added: {', '.join(uploaded)}")

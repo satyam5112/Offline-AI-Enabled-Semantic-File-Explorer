@@ -1,22 +1,38 @@
-import subprocess
 import webbrowser
 import time
 import socket
 import sys
 import threading
 import os
+import msvcrt
 
 from pystray import Icon, MenuItem, Menu
 from PIL import Image
 
 PORT = 8000
 
+os.environ["PYTHONIOENCODING"] = "utf-8"
+if sys.stdout is not None:
+    sys.stdout.reconfigure(encoding='utf-8')
+
 if getattr(sys, 'frozen', False):
-    BASE_DIR = sys._MEIPASS
+    BASE_DIR = os.path.dirname(os.path.abspath(sys.argv[0]))
+    MEIPASS = sys._MEIPASS
 else:
     BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+    MEIPASS = BASE_DIR
 
 os.chdir(BASE_DIR)
+sys.path.insert(0, MEIPASS)
+
+# --------------------------
+# Prevent multiple instances
+# --------------------------
+_lock_file = open(os.path.join(os.environ.get('TEMP', '.'), 'docs_ai.lock'), 'w')
+try:
+    msvcrt.locking(_lock_file.fileno(), msvcrt.LK_NBLCK, 1)
+except OSError:
+    sys.exit(0)
 
 # --------------------------
 # Add to startup
@@ -32,9 +48,9 @@ def add_to_startup():
         )
         winreg.SetValueEx(key, "DocS", 0, winreg.REG_SZ, f'"{exe_path}"')
         winreg.CloseKey(key)
-        print("✅ Added to startup")
+        print("Added to startup")
     except Exception as e:
-        print(f"⚠️ Could not add to startup: {e}")
+        print(f"Could not add to startup: {e}")
 
 add_to_startup()
 
@@ -45,8 +61,7 @@ def resource_path(relative_path):
     try:
         base_path = sys._MEIPASS
     except Exception:
-        base_path = os.path.abspath(".")
-
+        base_path = os.path.dirname(os.path.abspath(__file__))
     return os.path.join(base_path, relative_path)
 
 # --------------------------
@@ -60,12 +75,21 @@ def is_port_in_use(port):
 # Start backend
 # --------------------------
 def start_backend():
-    print("Starting backend...")
-    import uvicorn
-    from backend.api.main import app
-    print("Backend imported successfully")
+    log_path = os.path.join(os.environ.get('TEMP', '.'), 'docs_backend.log')
+    log_file = open(log_path, 'w')
+    
+    #Redirect stdout/stderr so transformers doesn't crash
+    sys.stdout = log_file
+    sys.stderr = log_file
 
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    try:
+        import uvicorn
+        from backend.api.main import app
+        uvicorn.run(app, host="127.0.0.1", port=8000)
+    except Exception as e:
+        log_file.write(f"ERROR: {e}\n")
+        import traceback
+        log_file.write(traceback.format_exc())
 
 # --------------------------
 # Open UI
@@ -88,8 +112,16 @@ def run_tray():
         icon_path = resource_path("logo.ico")
         image = Image.open(icon_path).convert("RGBA").resize((64, 64))
     except Exception as e:
-        print(f"⚠️ Could not load icon: {e}")
+        print(f"Could not load icon: {e}")
         image = Image.new('RGB', (64, 64), color='blue')
+
+    menu = Menu(
+        MenuItem("Open DocS", lambda icon, item: open_ui()),
+        MenuItem("Exit", exit_app)
+    )
+
+    icon = Icon("DocS", image, "DocS", menu)
+    icon.run()
 
 # --------------------------
 # MAIN

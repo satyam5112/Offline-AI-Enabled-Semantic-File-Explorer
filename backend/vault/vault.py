@@ -1,7 +1,7 @@
 """
 backend/vault/vault.py
 ======================
-Hidden Vault — file encryption, password management, session handling.
+Hidden Vault - file encryption, password management, session handling.
 
 Dependencies:
     pip install cryptography
@@ -25,7 +25,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.backends import default_backend
 import base64
 
-# ── Paths ────────────────────────────────────────────────────────────────────
+# Paths 
 # Anchor everything to THIS file's directory so paths are always consistent
 _VAULT_MODULE_DIR = os.path.dirname(os.path.abspath(__file__))  # backend/vault/
 BASE_DIR          = os.path.dirname(os.path.dirname(_VAULT_MODULE_DIR))  # project root
@@ -34,24 +34,21 @@ VAULT_CONFIG      = os.path.join(_VAULT_MODULE_DIR, "vault_config.json")
 
 os.makedirs(VAULT_DIR, exist_ok=True)
 
-# ── DB location (reuse app DB) ────────────────────────────────────────────────
+# DB location (reuse app DB) 
 try:
     from backend.configuration import DB_LOCATION
 except Exception:
     DB_LOCATION = os.path.join(BASE_DIR, "backend", "fileTracker_Status_checker.db")
 
-# ── Default password ──────────────────────────────────────────────────────────
+# Default password
 DEFAULT_PASSWORD = "1234"
 
-# ── In-memory session ─────────────────────────────────────────────────────────
-# token → expiry timestamp (None = never expires until app restart / nav away)
+# In-memory session 
+# token - expiry timestamp (None = never expires until app restart / nav away)
 _session: dict = {"token": None}
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
 #  PASSWORD MANAGEMENT
-# ═══════════════════════════════════════════════════════════════════════════════
-
 def _hash_password(password: str) -> str:
     """SHA-256 hash of password (hex string)."""
     return hashlib.sha256(password.encode()).hexdigest()
@@ -66,9 +63,9 @@ def _load_config() -> dict:
                 if "password_hash" in data:
                     return data
     except Exception as e:
-        print(f"⚠️ vault_config.json read error: {e} — resetting to default")
+        print(f"vault_config.json read error: {e} - resetting to default")
 
-    # First run or corrupted — create default config
+    # First run or corrupted  create default config
     config = {"password_hash": _hash_password(DEFAULT_PASSWORD)}
     _save_config(config)
     return config
@@ -83,16 +80,6 @@ def verify_password(password: str) -> bool:
     config = _load_config()
     return config["password_hash"] == _hash_password(password)
 
-
-# def change_password(old_password: str, new_password: str) -> dict:
-#     if not verify_password(old_password):
-#         return {"success": False, "error": "Current password is incorrect"}
-#     if not new_password or len(new_password) < 1:
-#         return {"success": False, "error": "New password cannot be empty"}
-#     config = _load_config()
-#     config["password_hash"] = _hash_password(new_password)
-#     _save_config(config)
-#     return {"success": True}
 def change_password(old_password: str, new_password: str) -> dict:
     if not verify_password(old_password):
         return {"success": False, "error": "Current password is incorrect"}
@@ -100,11 +87,11 @@ def change_password(old_password: str, new_password: str) -> dict:
     config = _load_config()
     config["password_hash"] = _hash_password(new_password)
 
-    # print("BEFORE SAVE:", config)   # 👈 add this
+    # print("BEFORE SAVE:", config)   #  add this
 
     _save_config(config)
 
-    # print("AFTER SAVE:", _load_config())  # 👈 add this
+    # print("AFTER SAVE:", _load_config())  # add this
 
     return {"success": True}
 
@@ -112,11 +99,7 @@ def is_default_password() -> bool:
     config = _load_config()
     return config["password_hash"] == _hash_password(DEFAULT_PASSWORD)
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
 #  SESSION MANAGEMENT
-# ═══════════════════════════════════════════════════════════════════════════════
-
 def create_session() -> str:
     token = str(uuid.uuid4())
     _session["token"] = token
@@ -131,11 +114,9 @@ def destroy_session():
     _session["token"] = None
 
 
-# ═══════════════════════════════════════════════════════════════════════════════
-#  ENCRYPTION HELPERS
-# ═══════════════════════════════════════════════════════════════════════════════
 
-# Fixed salt — acceptable for local app (not a web server)
+#  ENCRYPTION HELPERS
+# # Fixed salt acceptable for local app (not a web server)
 _SALT = b"docsvault_salt_v1"
 
 def _derive_key(password: str) -> bytes:
@@ -155,7 +136,7 @@ def _get_fernet(password: str) -> Fernet:
 
 
 def encrypt_file(src_path: str, dest_path: str, password: str):
-    """Encrypt src_path → dest_path using password-derived key."""
+    """Encrypt src_path - dest_path using password-derived key."""
     f = _get_fernet(password)
     with open(src_path, "rb") as fp:
         data = fp.read()
@@ -165,7 +146,7 @@ def encrypt_file(src_path: str, dest_path: str, password: str):
 
 
 def decrypt_file(src_path: str, dest_path: str, password: str):
-    """Decrypt src_path → dest_path using password-derived key."""
+    """Decrypt src_path - dest_path using password-derived key."""
     f = _get_fernet(password)
     with open(src_path, "rb") as fp:
         data = fp.read()
@@ -173,11 +154,7 @@ def decrypt_file(src_path: str, dest_path: str, password: str):
     with open(dest_path, "wb") as fp:
         fp.write(decrypted)
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
 #  DATABASE HELPERS
-# ═══════════════════════════════════════════════════════════════════════════════
-
 def ensure_vault_table():
     conn = sqlite3.connect(DB_LOCATION)
     cursor = conn.cursor()
@@ -219,11 +196,7 @@ def get_vault_files() -> list:
         for r in rows
     ]
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
 #  VAULT OPERATIONS
-# ═══════════════════════════════════════════════════════════════════════════════
-
 def add_to_vault(file_path: str, password: str) -> dict:
     """
     Encrypt a file and move it into the vault.
@@ -261,17 +234,17 @@ def add_to_vault(file_path: str, password: str) -> dict:
         norm_path = os.path.normpath(file_path)
         if os.path.exists(norm_path):
             os.remove(norm_path)
-            # print(f"🗑️ Deleted original: {norm_path}")
+            # print(f"Deleted original: {norm_path}")
         else:
             # Try with forward slashes converted (Windows path mismatch)
             alt_path = file_path.replace("/", "\\")
             if os.path.exists(alt_path):
                 os.remove(alt_path)
-                # print(f"🗑️ Deleted original (alt path): {alt_path}")
+                # print(f"Deleted original (alt path): {alt_path}")
             else:
-                print(f"⚠️ Could not delete original — file not found at: {norm_path}")
-                print(f"   The file was encrypted into vault but original may still exist on disk.")
-                print(f"   Please manually delete: {norm_path}")
+                print(f"Could not delete original - file not found at: {norm_path}")
+                print(f"The file was encrypted into vault but original may still exist on disk.")
+                print(f"Please manually delete: {norm_path}")
 
         # 5. Also delete ALL other indexed copies of same filename
         #    (handles case where same file is in multiple watched folders)
@@ -294,9 +267,9 @@ def add_to_vault(file_path: str, password: str) -> dict:
             if os.path.exists(norm) and norm != os.path.normpath(file_path):
                 try:
                     os.remove(norm)
-                    # print(f"🗑️ Deleted duplicate: {norm}")
+                    # print(f"Deleted duplicate: {norm}")
                 except Exception as del_err:
-                    print(f"⚠️ Could not delete duplicate {norm}: {del_err}")
+                    print(f"Could not delete duplicate {norm}: {del_err}")
 
         return {"success": True, "message": f"{original_name} encrypted and moved to vault"}
 
@@ -304,7 +277,7 @@ def add_to_vault(file_path: str, password: str) -> dict:
         # Cleanup on failure
         if os.path.exists(encrypted_path):
             os.remove(encrypted_path)
-        print(f"❌ add_to_vault error: {e}")
+        print(f"add_to_vault error: {e}")
         import traceback; traceback.print_exc()
         return {"success": False, "error": str(e)}
 
@@ -348,7 +321,7 @@ def remove_from_vault(vault_id: int, password: str, restore_path: str = None) ->
 
     except Exception as e:
         conn.close()
-        return {"success": False, "error": f"Decryption failed — wrong password or corrupted file: {e}"}
+        return {"success": False, "error": f"Decryption failed - wrong password or corrupted file: {e}"}
 
 
 def open_vault_file(vault_id: int, password: str) -> dict:

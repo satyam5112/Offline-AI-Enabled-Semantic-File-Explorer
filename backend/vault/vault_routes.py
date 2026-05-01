@@ -32,8 +32,7 @@ TEMPLATES_DIR = os.path.join(_BACKEND_DIR, "api", "templates") # .../backend/api
 
 templates = Jinja2Templates(directory=TEMPLATES_DIR)
 
-# ── helpers ───────────────────────────────────────────────────────────────────
-
+# helpers
 def _token_from_request(request: Request) -> str | None:
     return request.cookies.get("vault_token")
 
@@ -41,14 +40,10 @@ def _is_unlocked(request: Request) -> bool:
     token = _token_from_request(request)
     return token is not None and validate_session(token)
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
 #  VAULT PAGE
-# ═══════════════════════════════════════════════════════════════════════════════
-
 @router.get("/vault")
 def vault_page(request: Request):
-    """Main vault page — shows lock screen or vault contents."""
+    """Main vault page shows lock screen or vault contents."""
     ensure_vault_table()
     unlocked = _is_unlocked(request)
 
@@ -70,17 +65,13 @@ def vault_page(request: Request):
         }
     )
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
 #  AUTH
-# ═══════════════════════════════════════════════════════════════════════════════
-
 @router.post("/vault/unlock")
 def vault_unlock(password: str = Form(...)):
     if verify_password(password):
         token = create_session()
         response = RedirectResponse(url="/vault", status_code=303)
-        # Session cookie — expires when browser closes (no max_age)
+        # Session cookie expires when browser closes (no max_age)
         response.set_cookie("vault_token", token, httponly=True, samesite="strict")
         return response
     return RedirectResponse(
@@ -123,11 +114,7 @@ def vault_change_password(
 
     return JSONResponse({"success": False, "error": result["error"]}, status_code=400)
 
-
-# ═══════════════════════════════════════════════════════════════════════════════
 #  VAULT FILE OPERATIONS
-# ═══════════════════════════════════════════════════════════════════════════════
-
 @router.post("/vault/add")
 def vault_add_file(
     request: Request,

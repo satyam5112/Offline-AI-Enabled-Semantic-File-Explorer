@@ -1,4 +1,4 @@
-# DocS AI — Semantic File Search
+# DocS — Semantic File Search
 
 > Search across your files using natural language, not just keywords.
 
@@ -9,9 +9,9 @@
 
 ---
 
-## What is DocS AI?
+## What is DocS?
 
-DocS AI is a local semantic file search application that runs entirely on your machine. It indexes your files using AI embeddings and lets you search them using natural language — not just exact keyword matches.
+DocS is a local semantic file search application that runs entirely on your machine. It indexes your files using AI embeddings and lets you search them using natural language — not just exact keyword matches.
 
 Instead of remembering exact filenames, you can search for *"invoice from last month"* or *"project meeting notes"* and DocS finds the most relevant files instantly.
 
@@ -115,7 +115,7 @@ The app starts the backend server and opens the UI in your default browser autom
 
 1. Download `DocS_Setup.exe` from the releases page
 2. Run the installer and follow the wizard
-3. DocS AI will be installed with desktop shortcut and auto-startup enabled
+3. DocS will be installed with desktop shortcut and auto-startup enabled
 4. Launch from desktop shortcut or Start Menu
 
 ---
@@ -164,7 +164,7 @@ This produces `DocS_Setup.exe` — a full wizard installer with uninstall suppor
 
 ## Notes
 
-- DocS AI runs entirely **locally** — no data is sent to any server
+- DocS runs entirely **locally** — no data is sent to any server
 - The vault uses **AES-128 encryption** — files cannot be recovered without the password
 - Supported file types: `.pdf`, `.txt`, `.csv`, `.jpg`, `.jpeg`, `.png`
 - Mobile file sharing works over **local WiFi only**

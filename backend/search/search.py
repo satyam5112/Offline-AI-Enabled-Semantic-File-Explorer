@@ -16,12 +16,12 @@ INDEX_PATH = os.path.join(BASE_DIR, "vectorizer", "faiss_index.bin")
 
 index = faiss.read_index(INDEX_PATH)
 #  to check wheteher FAISS index is loading correctly or not
-# print("🚀 FAISS index loaded")
-# print("📊 Total vectors in index:", index.ntotal)
-# print("📁 Index path:", INDEX_PATH)
+# print("FAISS index loaded")
+# print("Total vectors in index:", index.ntotal)
+# print("Index path:", INDEX_PATH)
 
 # -------------------------------
-# 🔥 Clean query
+# Clean query
 # -------------------------------
 def clean_query(query):
     stopwords = {
@@ -37,7 +37,7 @@ def clean_query(query):
 
 
 # -------------------------------
-# 🔥 Keyword scoring
+# Keyword scoring
 # -------------------------------
 def keyword_score(text, words):
     score = 0
@@ -55,7 +55,7 @@ def highlight_text(text, keywords):
     return str(text)
 
 # -------------------------------
-# 🔍 MAIN SEARCH FUNCTION
+# MAIN SEARCH FUNCTION
 # -------------------------------
 def search_files(query, top_k=30, file_type=None, folder=None):
 
@@ -63,7 +63,7 @@ def search_files(query, top_k=30, file_type=None, folder=None):
     cursor = conn.cursor()
 
     try:
-        print(f"\n🔍 Query: {query}")
+        print(f"\nQuery: {query}")
 
         # ---- Step 1: Clean query ----
         clean_words = clean_query(query)
@@ -120,7 +120,7 @@ def search_files(query, top_k=30, file_type=None, folder=None):
             })
 
         # =========================================================
-        # 🔥 NEW: KEYWORD SEARCH (independent of FAISS)
+        # NEW: KEYWORD SEARCH (independent of FAISS)
         # =========================================================
 
         keyword_results = []
@@ -165,7 +165,7 @@ def search_files(query, top_k=30, file_type=None, folder=None):
                 })
                 
         # =========================================================
-        # 🔥 FILE NAME KEYWORD SEARCH (NEW)
+        # FILE NAME KEYWORD SEARCH (NEW)
         # =========================================================
 
         file_name_results = []
@@ -191,19 +191,19 @@ def search_files(query, top_k=30, file_type=None, folder=None):
                 if folder and folder not in file_folder:
                     continue
 
-                # 🔥 Strong boost for filename match
+                # Strong boost for filename match
                 score = 1.2
 
                 file_name_results.append({
                     "file_name": file_name,
                     "file_path": file_path,
                     "folder": file_folder,
-                    "chunk": f"📄 File name match: {file_name}",
+                    "chunk": f"File name match: {file_name}",
                     "score": score,
                     "source": "filename"
                 })
         # =========================================================
-        # 🔥 MERGE BOTH RESULTS
+        # MERGE BOTH RESULTS
         # =========================================================
 
         combined = semantic_results + keyword_results + file_name_results
@@ -224,7 +224,7 @@ def search_files(query, top_k=30, file_type=None, folder=None):
         return final_results[:5]
 
     except Exception as e:
-        print(f"❌ Search Error: {e}")
+        print(f"Search Error: {e}")
         return []
 
     finally:

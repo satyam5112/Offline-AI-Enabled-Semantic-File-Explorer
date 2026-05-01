@@ -17,7 +17,7 @@ def run_vectorizer(file_id, content):
         conn.execute("BEGIN")
 
         if file_id is None:
-            # print("❌ Invalid file_id. Skipping vectorization.")
+            # print("Invalid file_id. Skipping vectorization.")
             return
 
         chunks = chunk_text(content)
@@ -64,12 +64,12 @@ def run_vectorizer(file_id, content):
         # ---- Commit only if EVERYTHING succeeds ----
         conn.commit()
 
-        # print(f"✅ Vectorized file_id {file_id}")
+        # print(f"Vectorized file_id {file_id}")
 
     except Exception as e:
-        # ❌ If anything fails → rollback DB
+        # If anything fails rollback DB
         conn.rollback()
-        print(f"❌ Vectorization Error: {e}")
+        print(f"Vectorization Error: {e}")
 
     finally:
         conn.close()

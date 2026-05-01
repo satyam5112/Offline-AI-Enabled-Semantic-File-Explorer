@@ -38,7 +38,7 @@ def process_file(file_path, update=False):
             )
             result = cursor.fetchone()
             if result:
-                print(f"⚠️ Already indexed (different path): {file_name}")
+                print(f"Already indexed (different path): {file_name}")
 
         # ------------------ UPDATE CASE ------------------
         if result:
@@ -53,9 +53,9 @@ def process_file(file_path, update=False):
                 """, (file_name, extension, size, modified_time,
                       created_time, folder, file_id))
                 conn.commit()
-                print(f"♻️ Updated: {file_name} (ID: {file_id})")
+                print(f"Updated: {file_name} (ID: {file_id})")
             else:
-                print(f"⚠️ Already exists: {file_name} (ID: {file_id})")
+                print(f"Already exists: {file_name} (ID: {file_id})")
 
             return file_id
 
@@ -72,12 +72,12 @@ def process_file(file_path, update=False):
         file_id = cursor.lastrowid
         if not file_id:
             raise ValueError("File insert failed, stopping pipeline")
-        print(f"✅ Indexed: {file_name} (ID: {file_id})")
+        print(f"Indexed: {file_name} (ID: {file_id})")
 
         return file_id
 
     except Exception as e:
-        print(f"❌ Indexing Error: {e}")
+        print(f"Indexing Error: {e}")
         return None
 
     finally:

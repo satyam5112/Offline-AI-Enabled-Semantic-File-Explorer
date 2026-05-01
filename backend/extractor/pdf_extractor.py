@@ -3,7 +3,7 @@ from pdf2image import convert_from_path
 import pytesseract
 from concurrent.futures import ThreadPoolExecutor
 
-# 🔥 Set Tesseract path (Windows only)
+# Set Tesseract path (Windows only)
 pytesseract.pytesseract.tesseract_cmd = r"C:\Program Files\Tesseract-OCR\tesseract.exe"
 
 
@@ -33,18 +33,18 @@ def extract_pdf(file_path):
     # STEP 2: Check if OCR needed
     # -------------------------------
     if len(text.strip()) > 50:
-        return text   # ✅ Enough text → skip OCR
+        return text   # Enough text skip OCR
 
-    # print("⚠️ Low/No text found. Applying OCR...")
+    # print("Low/No text found. Applying OCR...")
 
     # -------------------------------
-    # STEP 3: Convert PDF → Images (LIMIT PAGES)
+    # STEP 3: Convert PDF Images (LIMIT PAGES)
     # -------------------------------
     try:
         images = convert_from_path(
             file_path,
             first_page=1,
-            last_page=3,  # 🔥 limit for speed
+            last_page=3,  # limit for speed
             poppler_path=r"C:\poppler\Library\bin"
         )
     except Exception as e:
@@ -59,7 +59,7 @@ def extract_pdf(file_path):
             # Convert to grayscale (faster + cleaner)
             img = img.convert("L")
 
-            # Resize (reduce resolution → faster OCR)
+            # Resize (reduce resolution for faster OCR)
             img = img.resize((img.width // 2, img.height // 2))
 
             return pytesseract.image_to_string(img)
