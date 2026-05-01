@@ -13,4 +13,7 @@ tempCodeRunnerFile.py
 build/
 dist/
 __pycache__/
-*.spec
+*.specDocS_Setup.exe
+DocS_Setup.exe
+DocS.spec
+installer.nsi
