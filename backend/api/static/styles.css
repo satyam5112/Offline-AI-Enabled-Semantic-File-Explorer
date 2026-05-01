@@ -43,9 +43,9 @@
     --bg-sidebar: linear-gradient(135deg, var(--color-p), var(--color-s));      /* Navy sidebar */
     
     /* Text Colors - Dark for light background */
-    --text-primary: #ffffff;   /* Almost black with navy tint */
+    --text-primary: #131313;   /* Almost black with navy tint */
     --text-secondary: #000000; /* Soft dark gray */
-    --text-muted: #8B8BA0;     /* Muted gray */
+    --text-muted: #000000;     /* Muted gray */
     --text-dark: #021A54;      /* Navy for accents */
     --text-light: #FFFFFF;     /* White for dark backgrounds */
     
@@ -869,8 +869,8 @@ body {
 .result-name {
     font-size: 14px;
     font-weight: 600;
-    color: var(--text-secondary);
-    /* color:rgb(0, 0, 0); */
+    /* color: var(--text-secondary); */
+    color:rgb(0, 0, 0);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1733,4 +1733,11 @@ body {
     background: rgba(239, 68, 68, 0.1);
     border-color: rgba(239, 68, 68, 0.2);
     color: var(--color-error);
+}
+.sidebar.collapsed .nav-text {
+    display: none;
+}
+
+.sidebar.collapsed .btn-reset-nav span:last-child {
+    display: none;
 }

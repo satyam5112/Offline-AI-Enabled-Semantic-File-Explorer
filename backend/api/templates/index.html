@@ -40,22 +40,38 @@
             </button>
         </div>
         <nav>
-            <a href="/" class="nav-item">
-                <span class="nav-icon">✨</span>
+           <a href="/" class="nav-item">
+                <span class="nav-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+                    </svg>
+                </span>
                 <span class="nav-text">Search</span>
             </a>
             <a href="/files" class="nav-item">
-                <span class="nav-icon">📄</span>
+                <span class="nav-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/>
+                    </svg>
+                </span>
                 <span class="nav-text">My Files</span>
             </a>
             <a href="/vault" class="nav-item">
-                <span class="nav-icon">🔒</span>
+                <span class="nav-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+                    </svg>
+                </span>
                 <span class="nav-text">Vault</span>
             </a>
         </nav>
         <div class="sidebar-bottom">
             <button class="btn-reset-nav" onclick="showResetModal()">
-                <span>🗑️</span>
+                <span class="nav-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+                    </svg>
+                </span>
                 <span>Reset Database</span>
             </button>
             
@@ -97,7 +113,7 @@
         <!-- TOP BAR -->
         <div class="topbar">
             <div>
-                <h1 class="page-title">AI File Search</h1>
+                <h1 class="page-title">DocS - AI File Search</h1>
                 <p class="page-sub">Semantic search across all your indexed documents</p>
             </div>
         </div>

@@ -124,13 +124,13 @@
     outline: none;
     padding: 16px 20px;
     font-size: 16px;
-    color: var(--text-primary);
+    color: var(--text-light);
     font-family: 'Inter', monospace;
     letter-spacing: 2px;
 }
 
 .pin-input::placeholder {
-    color: var(--text-muted);
+    color: rgba(255, 255, 255, 0.4);
     letter-spacing: normal;
     font-size: 14px;
 }
@@ -360,6 +360,7 @@
     font-size: 12px;
     color: var(--color-q);
     margin-bottom: 12px;
+    margin-top: 12px;
 }
 
 .vault-pw-input {
@@ -370,7 +371,7 @@
     border: 1.5px solid var(--border-glow);
     border-radius: 12px;
     font-size: 13px;
-    color: var(--text-primary);
+    color: var(--text-secondary);
     outline: none;
     transition: all var(--transition-normal);
 }
@@ -381,7 +382,7 @@
 }
 
 .vault-pw-input::placeholder {
-    color: var(--text-muted);
+    color: var(--text-mut
 }
 
 /* Modal Overrides for Vault */

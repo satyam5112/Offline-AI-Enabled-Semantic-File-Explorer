@@ -9,3 +9,8 @@ tempCodeRunnerFile.py
 
 # Optional
 .env
+
+build/
+dist/
+__pycache__/
+*.spec
