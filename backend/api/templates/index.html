@@ -23,6 +23,7 @@
                 setTimeout(() => toast.remove(), 400);
             }
         }, 4000);
+        window.history.replaceState({}, document.title, '/');
     </script>
     {% endif %}
 
@@ -421,8 +422,24 @@
                 <div class="ms-step"><span class="ms-step-num">3</span> Pick files &amp; tap Send</div>
             </div>
 
-            <div class="ms-folder-note">
-                Files saved to: <code id="ms-folder-path">~/Desktop/shared</code>
+            <div style="margin-bottom:16px; text-align:center;">
+                <button onclick="toggleSharePwForm()" 
+                    style="background:rgba(2,26,84,0.06); border:1px solid rgba(2,26,84,0.15); border-radius:10px; padding:8px 16px; font-size:12px; font-weight:600; color:#021A54; cursor:pointer;">
+                    Change Sharing Password
+                </button>
+                <div id="share-pw-form" style="display:none; margin-top:12px; padding:12px; background:rgba(2,26,84,0.04); border-radius:12px;">
+                    <div style="display:flex; flex-direction:column; gap:6px;">
+                        <input type="password" id="share-curr-pw" placeholder="Current password" 
+                            style="padding:8px 12px; border:1px solid rgba(2,26,84,0.15); border-radius:8px; font-size:12px; outline:none;"/>
+                        <input type="password" id="share-new-pw" placeholder="New password"
+                            style="padding:8px 12px; border:1px solid rgba(2,26,84,0.15); border-radius:8px; font-size:12px; outline:none;"/>
+                        <button onclick="changeSharingPassword()"
+                            style="background:linear-gradient(135deg,#021A54,#FF85BB); color:white; border:none; border-radius:8px; padding:8px; font-size:12px; font-weight:600; cursor:pointer;">
+                            Update Password
+                        </button>
+                        <div id="share-pw-msg" style="font-size:11px; text-align:center; display:none;"></div>
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -816,7 +833,6 @@ async function openQRModal() {
     const modal = document.getElementById("qr-modal");
     const qrContainer = document.getElementById("qr-inner");
     const urlChip = document.getElementById("qr-url-chip");
-    const folderPath = document.getElementById("ms-folder-path");
 
     modal.style.display = "flex";
 
@@ -843,7 +859,6 @@ async function openQRModal() {
 
         // Show URL + folder
         urlChip.textContent = url;
-        folderPath.textContent = folder;
 
     } catch (err) {
         qrContainer.innerHTML = "❌ Failed to load QR";
@@ -860,6 +875,12 @@ function closeQROnBackdrop(e) {
         closeQRModal();
     }
 }
+
+function toggleSharePwForm() {
+    const form = document.getElementById('share-pw-form');
+    form.style.display = form.style.display === 'none' ? 'block' : 'none';
+}
+
 setInterval(async () => {
     try {
         const res = await fetch("/mobile/recent");
@@ -884,6 +905,36 @@ function showToast(msg) {
 
     document.body.appendChild(t);
     setTimeout(() => t.remove(), 3000);
+}
+async function changeSharingPassword() {
+    const curr = document.getElementById('share-curr-pw').value.trim();
+    const newPw = document.getElementById('share-new-pw').value.trim();
+    const msg = document.getElementById('share-pw-msg');
+
+    if (!curr || !newPw) {
+        msg.style.color = '#ef4444';
+        msg.textContent = 'Both fields required';
+        msg.style.display = 'block';
+        return;
+    }
+
+    const form = new FormData();
+    form.append('current', curr);
+    form.append('new', newPw);
+
+    const res = await fetch('/mobile/set-sharing-password', { method: 'POST', body: form });
+    const data = await res.json();
+
+    if (data.success) {
+        msg.style.color = '#10b981';
+        msg.textContent = 'Password updated!';
+        document.getElementById('share-curr-pw').value = '';
+        document.getElementById('share-new-pw').value = '';
+    } else {
+        msg.style.color = '#ef4444';
+        msg.textContent = data.error;
+    }
+    msg.style.display = 'block';
 }
 </script>
 </body>

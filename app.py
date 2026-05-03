@@ -69,28 +69,26 @@ def resource_path(relative_path):
 # --------------------------
 def is_port_in_use(port):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        return s.connect_ex(("127.0.0.1", port)) == 0
+        return s.connect_ex(("0.0.0.0", port)) == 0
 
 # --------------------------
 # Start backend
 # --------------------------
 def start_backend():
     log_path = os.path.join(os.environ.get('TEMP', '.'), 'docs_backend.log')
-    log_file = open(log_path, 'w')
+    log_file = open(log_path, 'w', encoding='utf-8')
     
-    #Redirect stdout/stderr so transformers doesn't crash
     sys.stdout = log_file
     sys.stderr = log_file
 
     try:
         import uvicorn
         from backend.api.main import app
-        uvicorn.run(app, host="127.0.0.1", port=8000)
+        uvicorn.run(app, host="0.0.0.0", port=8000)
     except Exception as e:
         log_file.write(f"ERROR: {e}\n")
         import traceback
         log_file.write(traceback.format_exc())
-
 # --------------------------
 # Open UI
 # --------------------------

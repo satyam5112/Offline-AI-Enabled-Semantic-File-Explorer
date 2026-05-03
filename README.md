@@ -26,6 +26,7 @@ Instead of remembering exact filenames, you can search for *"invoice from last m
 - **Mobile File Sharing** — Send files from your phone to your PC over WiFi
 - **Recent Searches** — Quickly re-run previous searches
 - **Recent Results** — See last search results on the home page
+- **Password-Protected Sharing** — Mobile file sharing secured with a changeable password
 - **System Tray** — Runs silently in the background, always ready
 - **Auto Startup** — Registers itself to start with Windows automatically
 - **Web Interface** — Clean, modern UI accessible from any browser
@@ -131,11 +132,10 @@ The app starts the backend server and opens the UI in your default browser autom
 ### Add Files
 - **Upload files** — drag and drop or click to upload from the search page
 - **Watch a folder** — add a folder path to auto-index all files inside it
-- **Mobile upload** — scan the QR code from your phone to send files over WiFi
-
+- **Mobile upload** — scan the QR code from your phone, enter the sharing password, and send files over WiFi. Password is changeable from the QR modal on the desktop.
 ### Vault
 - Navigate to the **Vault** page
-- Default password is `1234`/`5112` — change it immediately after first use
+- Default password is `1234` — change it immediately after first use
 - Add files to encrypt them with AES-128
 - Original files are permanently deleted after encryption
 - Vault files are hidden from all search results
@@ -169,6 +169,7 @@ This produces `DocS_Setup.exe` — a full wizard installer with uninstall suppor
 - Supported file types: `.pdf`, `.txt`, `.csv`, `.jpg`, `.jpeg`, `.png`
 - Mobile file sharing works over **local WiFi only**
 - Auto-startup is registered under `HKEY_CURRENT_USER` — no admin rights needed
+- Mobile sharing password is stored securely as a SHA-256 hash in the local database
 
 ---
 

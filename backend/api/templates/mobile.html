@@ -484,64 +484,97 @@ body {
 <body>
 
 <div class="container" id="appContainer">
-    
-    <!-- Header with Branding -->
-    <div class="app-header">
-        <img src="/static/logo.svg" alt="DocS" class="sidebar-logo" style="height:38px; width:auto;">
-        <div class="app-name">DocS</div>
-        <div class="app-tagline">Wireless file transfer</div>
+
+    <!-- Password Gate -->
+    <div id="password-gate" style="display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:80vh;">
+        <div style="background:white; border-radius:28px; padding:36px 28px; width:100%; max-width:400px; box-shadow:0 4px 24px rgba(2,26,84,0.08); text-align:center;">
+            <div style="font-size:48px; margin-bottom:12px;">🔒</div>
+            <div style="font-size:22px; font-weight:800; background:linear-gradient(135deg,#021A54,#FF85BB); -webkit-background-clip:text; background-clip:text; color:transparent; margin-bottom:6px;">Enter Password</div>
+            <div style="font-size:13px; color:#8B8BA0; margin-bottom:24px;">Enter the sharing password set on your PC</div>
+            <div id="pw-error" style="display:none; background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.2); border-radius:12px; padding:10px; font-size:13px; color:#ef4444; margin-bottom:16px;">
+                Incorrect password. Try again.
+            </div>
+            <div style="display:flex; border:1.5px solid rgba(2,26,84,0.15); border-radius:16px; overflow:hidden; margin-bottom:16px;">
+                <input type="password" id="share-pw-input" placeholder="Enter password"
+                    style="flex:1; border:none; outline:none; padding:14px 16px; font-size:15px; font-family:inherit; background:white;"
+                    onkeydown="if(event.key==='Enter') verifyPassword()"/>
+                <button onclick="verifyPassword()"
+                    style="background:linear-gradient(135deg,#021A54,#FF85BB); border:none; padding:0 20px; color:white; cursor:pointer; font-size:18px;">
+                    →
+                </button>
+            </div>
+            <div id="default-pw-hint" style="font-size:11px; color:#8B8BA0;">Default password is <code style="background:rgba(2,26,84,0.06); padding:2px 6px; border-radius:4px;">1234</code></div>
+        </div>
     </div>
 
-    <!-- Main Upload Card -->
-    <div class="upload-card" id="main-card">
-        
-        <!-- Feature indicators -->
-        <div class="feature-badge">
-            <span class="badge">⚡ Instant sync</span>
-            <span class="badge">📁 Auto-index</span>
+    <!-- Main App (hidden until password verified) -->
+    <div id="main-app" style="display:none;">
+
+        <!-- Header with Branding -->
+        <div class="app-header">
+            <img src="/static/logo.svg" alt="DocS" class="sidebar-logo" style="height:38px; width:auto;">
+            <div class="app-name">DocS</div>
+            <div class="app-tagline">Wireless file transfer</div>
         </div>
 
-        <!-- Drop Zone -->
-        <div class="drop-zone">
-            <input type="file" id="file-input" multiple accept=".pdf,.txt,.jpg,.jpeg,.png,.csv,.docx,.doc"/>
-            <span class="drop-icon">📂</span>
-            <div class="drop-text">Choose files to send</div>
-            <div class="drop-hint">Tap or drag & drop anywhere</div>
-        </div>
+        <!-- Main Upload Card -->
+        <div class="upload-card" id="main-card">
+            
+            <!-- Feature indicators -->
+            <div class="feature-badge">
+                <span class="badge">⚡ Instant sync</span>
+                <span class="badge">📁 Auto-index</span>
+            </div>
 
-        <!-- File List Section -->
-        <div class="file-section-title" id="file-section-title" style="display: none;">
-            <h4>📄 Selected files</h4>
-            <div class="file-count" id="file-count">0</div>
-        </div>
-        
-        <div class="file-list" id="file-list">
-            <div class="empty-state" id="empty-state">
-                <div class="empty-icon">📭</div>
-                <div class="empty-text">No files selected yet</div>
+            <!-- Drop Zone -->
+            <div class="drop-zone">
+                <input type="file" id="file-input" multiple accept=".pdf,.txt,.jpg,.jpeg,.png,.csv,.docx,.doc"/>
+                <span class="drop-icon">📂</span>
+                <div class="drop-text">Choose files to send</div>
+                <div class="drop-hint">Tap or drag & drop anywhere</div>
+            </div>
+
+            <!-- File List Section -->
+            <div class="file-section-title" id="file-section-title" style="display: none;">
+                <h4>📄 Selected files</h4>
+                <div class="file-count" id="file-count">0</div>
+            </div>
+            
+            <div class="file-list" id="file-list">
+                <div class="empty-state" id="empty-state">
+                    <div class="empty-icon">📭</div>
+                    <div class="empty-text">No files selected yet</div>
+                </div>
+            </div>
+
+            <!-- Add More Files Button -->
+            <button class="send-btn" id="add-more-btn" 
+                style="background:rgba(2,26,84,0.08); color:#021A54; margin-bottom:8px; display:none; border: 1.5px dashed rgba(2,26,84,0.25); font-size:14px;"
+                onclick="document.getElementById('file-input').click()">
+                <span class="btn-icon">+</span>
+                <span>Add More Files</span>
+            </button>
+
+            <!-- Send Button -->
+            <button class="send-btn" id="send-btn" disabled>
+                <span class="btn-icon">🚀</span>
+                <span>Send to PC</span>
+            </button>
+            
+            <!-- PC hint -->
+            <div class="pc-hint">
+                <span>💻</span> Make sure your PC is running DocS
             </div>
         </div>
 
-        <!-- Send Button -->
-        <button class="send-btn" id="send-btn" disabled>
-            <span class="btn-icon">🚀</span>
-            <span>Send to PC</span>
-        </button>
-        
-        <!-- PC hint -->
-        <div class="pc-hint">
-            <span>💻</span> Make sure your PC is running DocS
+        <!-- Completion Status Card -->
+        <div class="status-card" id="status-card">
+            <div class="status-icon-large" id="status-icon">✅</div>
+            <div class="status-title" id="status-title">All done!</div>
+            <div class="status-message" id="status-message">Files transferred successfully</div>
+            <div class="status-note" id="status-note">✨ Your PC will index them automatically</div>
         </div>
     </div>
-
-    <!-- Completion Status Card -->
-    <div class="status-card" id="status-card">
-        <div class="status-icon-large" id="status-icon">✅</div>
-        <div class="status-title" id="status-title">All done!</div>
-        <div class="status-message" id="status-message">Files transferred successfully</div>
-        <div class="status-note" id="status-note">✨ Your PC will index them automatically</div>
-    </div>
-
 </div>
 
 <script>
@@ -576,42 +609,145 @@ function formatSize(bytes) {
     return (bytes / 1048576).toFixed(1) + ' MB';
 }
 
+function removeFile(index) {
+    files.splice(index, 1);
+    updateFileUI();
+}
+
+function removeGroup(type) {
+    const exts = {
+        'Images': ['jpg','jpeg','png','gif','webp'],
+        'Videos': ['mp4','mov','avi','mkv','webm'],
+        'PDFs': ['pdf'],
+        'Documents': ['txt','doc','docx'],
+        'Spreadsheets': ['csv'],
+    };
+    const groupExts = exts[type] || [];
+    files = files.filter(f => {
+        const ext = f.name.split('.').pop().toLowerCase();
+        return type === 'Others' ? Object.values(exts).flat().includes(ext) : !groupExts.includes(ext);
+    });
+    updateFileUI();
+}
+
 function updateFileUI() {
     if (files.length === 0) {
         emptyState.style.display = 'block';
         fileSectionTitle.style.display = 'none';
         sendBtn.disabled = true;
+        document.getElementById('add-more-btn').style.display = 'none';
+        fileList.innerHTML = '';
+        fileList.appendChild(emptyState);
         return;
     }
-    
+
     emptyState.style.display = 'none';
     fileSectionTitle.style.display = 'flex';
     fileCountSpan.textContent = files.length;
     sendBtn.disabled = false;
-    
+    document.getElementById('add-more-btn').style.display = 'flex';
+
     fileList.innerHTML = '';
+
+    // Group by type
+    const groups = {};
     files.forEach((f, i) => {
-        const fileItem = document.createElement('div');
-        fileItem.className = 'file-item';
-        fileItem.innerHTML = `
-            <div class="progress" id="p-${i}"></div>
-            <div class="file-row">
-                <div class="file-icon">${getFileIcon(f.name)}</div>
-                <div class="file-info">
-                    <div class="file-name" title="${f.name}">${f.name}</div>
-                    <div class="file-meta">
-                        <span class="file-size">${formatSize(f.size)}</span>
+        const ext = f.name.split('.').pop().toLowerCase();
+        const type = ['jpg','jpeg','png','gif','webp'].includes(ext) ? 'Images' :
+                     ['mp4','mov','avi','mkv','webm'].includes(ext) ? 'Videos' :
+                     ['pdf'].includes(ext) ? 'PDFs' :
+                     ['txt','doc','docx'].includes(ext) ? 'Documents' :
+                     ['csv'].includes(ext) ? 'Spreadsheets' : 'Others';
+        if (!groups[type]) groups[type] = [];
+        groups[type].push({f, i});
+    });
+
+    // If more than 10 files — show grouped summary
+    if (files.length > 10) {
+        const totalSize = files.reduce((acc, f) => acc + f.size, 0);
+        
+        // Summary header
+        const summary = document.createElement('div');
+        summary.style.cssText = `
+            background: rgba(2,26,84,0.04);
+            border-radius: 14px;
+            padding: 14px 16px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        `;
+        summary.innerHTML = `
+            <div style="font-size:13px; font-weight:700; color:#021A54;">${files.length} files selected</div>
+            <div style="font-size:12px; color:#9B97A8;">${formatSize(totalSize)} total</div>
+        `;
+        fileList.appendChild(summary);
+
+        // Group chips
+        Object.entries(groups).forEach(([type, items]) => {
+            const chip = document.createElement('div');
+            chip.style.cssText = `
+                background: white;
+                border: 1px solid rgba(2,26,84,0.08);
+                border-radius: 14px;
+                padding: 12px 16px;
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                margin-bottom: 8px;
+            `;
+            const icon = type === 'Images' ? '🖼️' : type === 'Videos' ? '🎬' :
+                         type === 'PDFs' ? '📄' : type === 'Documents' ? '📝' :
+                         type === 'Spreadsheets' ? '📊' : '📎';
+            chip.innerHTML = `
+                <div style="display:flex; align-items:center; gap:10px;">
+                    <span style="font-size:20px;">${icon}</span>
+                    <div>
+                        <div style="font-size:13px; font-weight:600; color:#021A54;">${type}</div>
+                        <div style="font-size:11px; color:#9B97A8;">${formatSize(items.reduce((a,{f})=>a+f.size,0))}</div>
                     </div>
                 </div>
-                <div class="file-status" id="s-${i}">⏳</div>
-            </div>
-        `;
-        fileList.appendChild(fileItem);
-    });
+                <div style="display:flex; align-items:center; gap:8px;">
+                    <span style="background:rgba(255,133,187,0.15); color:#FF85BB; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px;">${items.length}</span>
+                    <button onclick="removeGroup('${type}')" style="background:rgba(239,68,68,0.1); border:none; border-radius:6px; padding:3px 10px; font-size:11px; color:#ef4444; cursor:pointer;">✕ Remove</button>
+                </div>
+            `;
+            fileList.appendChild(chip);
+        });
+
+    } else {
+        // Show individual files if 10 or fewer
+        files.forEach((f, i) => {
+            const fileItem = document.createElement('div');
+            fileItem.className = 'file-item';
+            fileItem.innerHTML = `
+                <div class="progress" id="p-${i}"></div>
+                <div class="file-row">
+                    <div class="file-icon" style="font-size:18px; min-width:28px;">${getFileIcon(f.name)}</div>
+                    <div class="file-info">
+                        <div class="file-name" style="font-size:12px; max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${f.name}">${f.name}</div>
+                        <div class="file-meta">
+                            <span class="file-size">${formatSize(f.size)}</span>
+                        </div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:8px;">
+                        <div class="file-status" id="s-${i}" style="font-size:14px;">⏳</div>
+                        <button onclick="removeFile(${i})" style="background:rgba(239,68,68,0.1); border:none; border-radius:6px; padding:2px 8px; font-size:11px; color:#ef4444; cursor:pointer;">✕</button>
+                    </div>
+                </div>
+            `;
+            fileList.appendChild(fileItem);
+        });
+    }
 }
 
 input.onchange = () => {
-    files = Array.from(input.files);
+    const newFiles = Array.from(input.files);
+    // Add only files not already in list (by name+size)
+    newFiles.forEach(newFile => {
+        const exists = files.some(f => f.name === newFile.name && f.size === newFile.size);
+        if (!exists) files.push(newFile);
+    });
     updateFileUI();
 };
 
@@ -655,13 +791,9 @@ if (dropZone) {
 sendBtn.onclick = async () => {
     if (files.length === 0) return;
     
-    // Animate to status
-    mainCard.classList.add('fade-out');
-    
-    setTimeout(() => {
-        mainCard.style.display = 'none';
-        statusCard.style.display = 'block';
-    }, 300);
+    // Disable button and show uploading state
+    sendBtn.disabled = true;
+    sendBtn.innerHTML = `<span class="btn-icon">⏳</span><span>0 / ${files.length} sent</span>`;
     
     let successCount = 0;
     
@@ -685,9 +817,10 @@ sendBtn.onclick = async () => {
                 const statusSpan = document.getElementById(`s-${i}`);
                 if (statusSpan) statusSpan.textContent = '✅';
                 if (xhr.status === 200) successCount++;
+                sendBtn.innerHTML = `<span class="btn-icon">⏳</span><span>${successCount} / ${files.length} sent</span>`;
                 resolve();
             };
-            
+
             xhr.onerror = () => {
                 const statusSpan = document.getElementById(`s-${i}`);
                 if (statusSpan) statusSpan.textContent = '❌';
@@ -705,6 +838,12 @@ sendBtn.onclick = async () => {
     } catch(e) {
         console.warn("Completion notification failed", e);
     }
+
+    mainCard.classList.add('fade-out');
+    setTimeout(() => {
+        mainCard.style.display = 'none';
+        statusCard.style.display = 'block';
+    }, 300);
     
     // Update status card based on results
     if (successCount === files.length) {
@@ -719,10 +858,29 @@ sendBtn.onclick = async () => {
         statusNote.textContent = 'Check your connection and try again for failed files';
     }
 };
-
 // Initial UI state
 updateFileUI();
+async function verifyPassword() {
+    const pw = document.getElementById('share-pw-input').value.trim();
+    if (!pw) return;
+    
+    const form = new FormData();
+    form.append('password', pw);
+    const res = await fetch('/mobile/verify-password', { method: 'POST', body: form });
+    const data = await res.json();
+    
+    if (data.success) {
+        document.getElementById('password-gate').style.display = 'none';
+        document.getElementById('main-app').style.display = 'block';
+        if (!data.is_default) {
+            document.getElementById('default-pw-hint').style.display = 'none';
+        }
+    }
+    else {
+        document.getElementById('pw-error').style.display = 'block';
+        document.getElementById('share-pw-input').value = '';
+    }
+}
 </script>
-
 </body>
 </html>

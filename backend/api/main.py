@@ -5,6 +5,8 @@ import shutil
 import sqlite3
 import tempfile
 import socket
+import hashlib
+
 
 from backend.task_queue.progress import progress
 from backend.automation.file_watcher import watched_paths, start_watching, stop_all_watchers
@@ -76,6 +78,37 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 recent_upload_count = 0
+
+# ---- Mobile sharing password ----
+def _load_sharing_pw():
+    try:
+        conn = sqlite3.connect(DB_LOCATION)
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT)")
+        cursor.execute("SELECT value FROM app_settings WHERE key='sharing_pw'")
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return row[0]
+    except:
+        pass
+    return hashlib.sha256("1234".encode()).hexdigest()
+
+def _save_sharing_pw(hash_str):
+    try:
+        conn = sqlite3.connect(DB_LOCATION)
+        cursor = conn.cursor()
+        cursor.execute("CREATE TABLE IF NOT EXISTS app_settings (key TEXT PRIMARY KEY, value TEXT)")
+        cursor.execute("INSERT OR REPLACE INTO app_settings (key, value) VALUES ('sharing_pw', ?)", (hash_str,))
+        conn.commit()
+        conn.close()
+    except Exception as e:
+        print(f"Could not save password: {e}")
+
+_sharing_password_hash = _load_sharing_pw()
+
+def _hash_pw(pw: str) -> str:
+    return hashlib.sha256(pw.encode()).hexdigest()
 
 # ---- Static + Templates ----
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
@@ -612,6 +645,28 @@ def get_recent():
     count = recent_upload_count
     recent_upload_count = 0  # reset after reading
     return {"count": count}
+
+@app.get("/mobile/sharing-password")
+def get_sharing_password():
+    return {"hash": _sharing_password_hash}
+
+@app.post("/mobile/set-sharing-password")
+def set_sharing_password(current: str = Form(...), new: str = Form(...)):
+    global _sharing_password_hash
+    if _hash_pw(current) != _sharing_password_hash:
+        return {"success": False, "error": "Current password incorrect"}
+    if not new.strip():
+        return {"success": False, "error": "Password cannot be empty"}
+    _sharing_password_hash = _hash_pw(new)
+    _save_sharing_pw(_sharing_password_hash)
+    return {"success": True}
+
+@app.post("/mobile/verify-password")
+def mobile_verify_password(password: str = Form(...)):
+    if _hash_pw(password) == _sharing_password_hash:
+        is_default = _sharing_password_hash == hashlib.sha256("1234".encode()).hexdigest()
+        return {"success": True, "is_default": is_default}
+    return {"success": False}
 
 @app.post("/vault/add-upload")
 async def vault_add_upload(file: UploadFile = File(...), password: str = Form(...)):
