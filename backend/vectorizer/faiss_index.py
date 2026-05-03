@@ -1,7 +1,19 @@
 import faiss
 import os
+import sys
 
-FAISS_INDEX_FILE = "backend/vectorizer/faiss_index.bin"
+# ---- Dynamic path ----
+if getattr(sys, 'frozen', False):
+    # Running as .exe — store in AppData
+    _APP_DATA = os.path.join(os.environ.get('APPDATA', os.path.expanduser('~')), 'DocS AI')
+else:
+    # Running from source — store next to this file
+    _APP_DATA = os.path.dirname(os.path.abspath(__file__))
+
+os.makedirs(_APP_DATA, exist_ok=True)
+
+
+FAISS_INDEX_FILE = os.path.join(_APP_DATA, "faiss_index.bin")
 DIMENSION = 384
 
 def create_index():
